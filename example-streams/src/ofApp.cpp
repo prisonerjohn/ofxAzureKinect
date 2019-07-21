@@ -14,8 +14,6 @@ void ofApp::setup()
 //--------------------------------------------------------------
 void ofApp::exit()
 {
-	ofLogNotice(__FUNCTION__) << "Found " << this->kinectDevice.getInstalledCount() << " installed devices.";
-
 	this->kinectDevice.close();
 }
 
@@ -32,19 +30,9 @@ void ofApp::draw()
 
 	if (this->kinectDevice.isStreaming())
 	{
-		//this->kinectDevice.getColorTex().draw(0, 0, ofGetWidth(), ofGetHeight());
-
-		this->cam.begin();
-		{
-			ofDrawAxis(100.0f);
-
-			this->kinectDevice.getColorInDepthTex().bind();
-			this->kinectDevice.getPointCloudVbo().draw(
-				GL_POINTS, 
-				0, this->kinectDevice.getPointCloudVbo().getNumVertices());
-			this->kinectDevice.getColorInDepthTex().unbind();
-		}
-		this->cam.end();
+		this->kinectDevice.getColorTex().draw(0, 0, 1280, 720);
+		this->kinectDevice.getDepthTex().draw(1280, 0, 360, 360);
+		this->kinectDevice.getIrTex().draw(1280, 360, 360, 360);
 	}
 
 	ofDrawBitmapString(ofToString(ofGetFrameRate(), 2) + " FPS", 10, 20);

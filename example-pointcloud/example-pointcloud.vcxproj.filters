@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup>
+		<ClCompile Include="src\ofApp.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="src\main.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="src\main.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="src\ofApp.cpp">
+			<Filter>src</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Device.cpp">
+			<Filter>addons\ofxAzureKinect\src\ofxAzureKinect</Filter>
+		</ClCompile>
+	</ItemGroup>
+	<ItemGroup>
+		<Filter Include="src">
+			<UniqueIdentifier>{d8376475-7454-4a24-b08a-aac121d3ad6f}</UniqueIdentifier>
+		</Filter>
+		<Filter Include="addons">
+			<UniqueIdentifier>{71834F65-F3A9-211E-73B8-DC85}</UniqueIdentifier>
+		</Filter>
+		<Filter Include="addons\ofxAzureKinect">
+			<UniqueIdentifier>{D1CD0095-639A-AA0C-2695-A77A}</UniqueIdentifier>
+		</Filter>
+		<Filter Include="addons\ofxAzureKinect\src">
+			<UniqueIdentifier>{1D958AB7-749A-B5D4-4289-C982}</UniqueIdentifier>
+		</Filter>
+		<Filter Include="addons\ofxAzureKinect\src\ofxAzureKinect">
+			<UniqueIdentifier>{5A177E02-2822-7F8A-3873-684D}</UniqueIdentifier>
+		</Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="src\ofApp.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="src\ofApp.h">
+			<Filter>src</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Device.h">
+			<Filter>addons\ofxAzureKinect\src\ofxAzureKinect</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect.h">
+			<Filter>addons\ofxAzureKinect\src</Filter>
+		</ClInclude>
+	</ItemGroup>
+	<ItemGroup>
+		<ResourceCompile Include="icon.rc" />
+	</ItemGroup>
+</Project>
