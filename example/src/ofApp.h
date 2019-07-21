@@ -28,4 +28,6 @@ public:
 
 private:
 	ofxAzureKinect::Device kinectDevice;
+
+	ofEasyCam cam;
 };

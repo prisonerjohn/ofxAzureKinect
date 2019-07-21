@@ -32,8 +32,18 @@ void ofApp::draw()
 
 	if (this->kinectDevice.isStreaming())
 	{
-		this->kinectDevice.getIrTex().draw(0, 0);
+		//this->kinectDevice.getColorTex().draw(0, 0, ofGetWidth(), ofGetHeight());
+
+		this->cam.begin();
+		{
+			ofDrawAxis(100.0f);
+
+			this->kinectDevice.getPointCloudMesh().draw();
+		}
+		this->cam.end();
 	}
+
+	ofDrawBitmapString(ofToString(ofGetFrameRate(), 2) + " FPS", 10, 20);
 }
 
 //--------------------------------------------------------------

@@ -16,7 +16,12 @@ namespace ofxAzureKinect
 		, bOpen(false)
 		, bStreaming(false)
 	{
-
+		// TODO: Add a method to set these options.
+		this->config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+		this->config.color_format = K4A_IMAGE_FORMAT_COLOR_BGRA32;
+		this->config.color_resolution = K4A_COLOR_RESOLUTION_2160P;
+		this->config.depth_mode = K4A_DEPTH_MODE_WFOV_2X2BINNED;
+		this->config.camera_fps = K4A_FRAMES_PER_SECOND_30;
 	}
 
 	Device::~Device()
@@ -33,7 +38,8 @@ namespace ofxAzureKinect
 		}
 
 		// Open connection to the device.
-		if (K4A_RESULT_SUCCEEDED != k4a_device_open(deviceIdx, &this->device))
+		if (K4A_RESULT_SUCCEEDED != 
+			k4a_device_open(deviceIdx, &this->device))
 		{
 			ofLogError(__FUNCTION__) << "Failed to open device " << deviceIdx << "!";
 			return false;
@@ -43,7 +49,8 @@ namespace ofxAzureKinect
 		char * serialNumberBuffer = nullptr;
 		size_t serialNumberLength = 0;
 
-		if (K4A_BUFFER_RESULT_TOO_SMALL != k4a_device_get_serialnum(this->device, NULL, &serialNumberLength))
+		if (K4A_BUFFER_RESULT_TOO_SMALL != 
+			k4a_device_get_serialnum(this->device, NULL, &serialNumberLength))
 		{
 			ofLogError(__FUNCTION__) << "Failed to get device " << deviceIdx << " serial number length!";
 
@@ -64,7 +71,8 @@ namespace ofxAzureKinect
 			return false;
 		}
 
-		if (K4A_BUFFER_RESULT_SUCCEEDED != k4a_device_get_serialnum(this->device, serialNumberBuffer, &serialNumberLength))
+		if (K4A_BUFFER_RESULT_SUCCEEDED != 
+			k4a_device_get_serialnum(this->device, serialNumberBuffer, &serialNumberLength))
 		{
 			ofLogError(__FUNCTION__) << "Failed to get serial number for device " << deviceIdx << "!";
 
@@ -114,13 +122,72 @@ namespace ofxAzureKinect
 			return false;
 		}
 
-		k4a_device_configuration_t config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-		config.color_format = K4A_IMAGE_FORMAT_COLOR_BGRA32;
-		config.color_resolution = K4A_COLOR_RESOLUTION_2160P;
-		config.depth_mode = K4A_DEPTH_MODE_NFOV_UNBINNED;
-		config.camera_fps = K4A_FRAMES_PER_SECOND_30;
+		// Get calibration.
+		if (K4A_RESULT_SUCCEEDED != 
+			k4a_device_get_calibration(this->device, this->config.depth_mode, this->config.color_resolution, &this->calibration))
+		{
+			ofLogError(__FUNCTION__) << "Failed to get calibration for device " << this->index;
+			return false;
+		}
 
-		if (K4A_RESULT_SUCCEEDED != k4a_device_start_cameras(this->device, &config))
+		// Create depth to world LUT.
+		k4a_image_create(K4A_IMAGE_FORMAT_CUSTOM,
+			this->calibration.depth_camera_calibration.resolution_width,
+			this->calibration.depth_camera_calibration.resolution_height,
+			this->calibration.depth_camera_calibration.resolution_width * (int)sizeof(k4a_float2_t),
+			&this->depthToWorldTable);
+
+		k4a_float2_t *tableData = (k4a_float2_t *)(void *)k4a_image_get_buffer(this->depthToWorldTable);
+
+		this->depthToWorldSize = glm::ivec2(
+			this->calibration.depth_camera_calibration.resolution_width,
+			this->calibration.depth_camera_calibration.resolution_height
+		);
+
+		k4a_float2_t p;
+		k4a_float3_t ray;
+		int valid;
+		int idx = 0;
+		for (int y = 0; y < this->depthToWorldSize.y; ++y)
+		{
+			p.xy.y = (float)y;
+
+			for (int x = 0; x < this->depthToWorldSize.x; ++x)
+			{
+				p.xy.x = (float)x;
+
+				k4a_calibration_2d_to_3d(&this->calibration, &p, 1.f, K4A_CALIBRATION_TYPE_DEPTH, K4A_CALIBRATION_TYPE_DEPTH, &ray, &valid);
+
+				if (valid)
+				{
+					tableData[idx].xy.x = ray.xyz.x;
+					tableData[idx].xy.y = ray.xyz.y;
+				}
+				else
+				{
+					tableData[idx].xy.x = nanf("");
+					tableData[idx].xy.y = nanf("");
+				}
+
+				++idx;
+			}
+		}
+
+		this->depthToWorldPix.allocate(this->depthToWorldSize.x, this->depthToWorldSize.y, 2);
+		this->depthToWorldPix.setFromPixels((float *)tableData, this->depthToWorldSize.x, this->depthToWorldSize.y, 2);
+		this->depthToWorldTex.allocate(this->depthToWorldSize.x, this->depthToWorldSize.y, GL_RG32F);
+		this->depthToWorldTex.loadData(this->depthToWorldPix);
+
+		// Create point cloud table.
+		k4a_image_create(K4A_IMAGE_FORMAT_CUSTOM,
+			this->calibration.depth_camera_calibration.resolution_width,
+			this->calibration.depth_camera_calibration.resolution_height,
+			this->calibration.depth_camera_calibration.resolution_width * (int)sizeof(k4a_float3_t),
+			&this->pointCloudTable);
+
+		// Start cameras.
+		if (K4A_RESULT_SUCCEEDED != 
+			k4a_device_start_cameras(this->device, &config))
 		{
 			ofLogError(__FUNCTION__) << "Failed to start cameras for device " << this->index;
 			return false;
@@ -174,7 +241,10 @@ namespace ofxAzureKinect
 				this->colorSize = glm::ivec2(k4a_image_get_width_pixels(image), k4a_image_get_height_pixels(image));
 
 				this->colorPix.allocate(this->colorSize.x, this->colorSize.y, OF_PIXELS_BGRA);
-				this->colorTex.allocate(this->colorSize.x, this->colorSize.y, GL_RGBA);
+				this->colorTex.allocate(this->colorSize.x, this->colorSize.y, GL_RGBA8, ofGetUsingArbTex(), GL_BGRA, GL_UNSIGNED_BYTE);
+				// TODO: Fix rendering of BGRA texture.
+				//glTexParameteri(this->colorTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
+				//glTexParameteri(this->colorTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_B, GL_RED);
 			}
 
 			this->colorPix.setFromPixels(colorData, this->colorSize.x, this->colorSize.y, 4);
@@ -189,9 +259,9 @@ namespace ofxAzureKinect
 			ofLogWarning(__FUNCTION__) << "No Color capture found!";
 		}
 
-		// probe for a IR16 image
+		// Probe for a IR16 image.
 		image = k4a_capture_get_ir_image(this->capture);
-		if (image != NULL)
+		if (image)
 		{
 			auto irData = (uint16_t*)(void*)k4a_image_get_buffer(image);
 
@@ -218,7 +288,7 @@ namespace ofxAzureKinect
 
 		// Probe for a depth16 image.
 		image = k4a_capture_get_depth_image(this->capture);
-		if (image != NULL)
+		if (image)
 		{
 			auto depthData = (uint16_t*)(void*)k4a_image_get_buffer(image);
 
@@ -234,6 +304,37 @@ namespace ofxAzureKinect
 			this->depthTex.loadData(this->depthPix);
 
 			ofLogVerbose(__FUNCTION__) << "Capture Depth16 " << this->depthSize.x << "x" << this->depthSize.y << " stride: " << k4a_image_get_stride_bytes(image) << ".";
+
+			// Probe for a point cloud frame.
+			k4a_float2_t *tableData = (k4a_float2_t *)(void *)k4a_image_get_buffer(this->depthToWorldTable);
+			k4a_float3_t *pointCloudData = (k4a_float3_t *)(void *)k4a_image_get_buffer(this->pointCloudTable);
+
+			this->pointCloudMesh.clear();
+			this->pointCloudMesh.setMode(OF_PRIMITIVE_POINTS);
+
+			int numPoints = 0;
+			for (int i = 0; i < this->depthSize.x * this->depthSize.y; i++)
+			{
+				if (depthData[i] != 0 && !isnan(tableData[i].xy.x) && !isnan(tableData[i].xy.y))
+				{
+					pointCloudData[i].xyz.x = tableData[i].xy.x * (float)depthData[i];
+					pointCloudData[i].xyz.y = tableData[i].xy.y * (float)depthData[i];
+					pointCloudData[i].xyz.z = (float)depthData[i];
+
+					this->pointCloudMesh.addVertex(glm::vec3(tableData[i].xy.x * (float)depthData[i], tableData[i].xy.y * (float)depthData[i], (float)depthData[i]));
+
+					//if (numPoints < 100) ofLogNotice(__FUNCTION__) << "Add point " << numPoints << ": " << pointCloudData[i].xyz.x << ", " << pointCloudData[i].xyz.y << ", " << pointCloudData[i].xyz.z;
+					++numPoints;
+				}
+				else
+				{
+					pointCloudData[i].xyz.x = nanf("");
+					pointCloudData[i].xyz.y = nanf("");
+					pointCloudData[i].xyz.z = nanf("");
+				}
+			}
+
+			this->pointCloudMesh.addVertices((glm::vec3 *)pointCloudData, numPoints);
 
 			k4a_image_release(image);
 		}
@@ -299,6 +400,25 @@ namespace ofxAzureKinect
 	const ofTexture& Device::getIrTex() const
 	{
 		return this->irTex;
-;
+	}
+
+	const glm::ivec2& Device::getDepthToWorldSize() const
+	{
+		return this->depthToWorldSize;
+	}
+
+	const ofFloatPixels& Device::getDepthToWorldPix() const
+	{
+		return this->depthToWorldPix;
+	}
+
+	const ofTexture& Device::getDepthToWorldTex() const
+	{
+		return this->depthToWorldTex;
+	}
+
+	const ofVboMesh& Device::getPointCloudMesh() const
+	{
+		return this->pointCloudMesh;
 	}
 }

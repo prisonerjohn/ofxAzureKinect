@@ -6,6 +6,7 @@
 #include "ofEvents.h"
 #include "ofPixels.h"
 #include "ofTexture.h"
+#include "ofVboMesh.h"
 #include "ofVectorMath.h"
 
 namespace ofxAzureKinect
@@ -40,12 +41,23 @@ namespace ofxAzureKinect
 		const ofShortPixels& getIrPix() const;
 		const ofTexture& getIrTex() const;
 
+		const glm::ivec2& getDepthToWorldSize() const;
+		const ofFloatPixels& getDepthToWorldPix() const;
+		const ofTexture& getDepthToWorldTex() const;
+
+		const ofVboMesh& getPointCloudMesh() const;
+
 	private:
 		void updateCameras(ofEventArgs& args);
 
 	private:
+		k4a_device_configuration_t config;
+		k4a_calibration_t calibration;
 		k4a_device_t device = nullptr;
 		k4a_capture_t capture = nullptr;
+
+		k4a_image_t depthToWorldTable;
+		k4a_image_t pointCloudTable;
 
 		int index;
 		bool bOpen;
@@ -54,15 +66,21 @@ namespace ofxAzureKinect
 		std::string serialNumber;
 
 		glm::ivec2 depthSize;
-		glm::ivec2 colorSize;
-		glm::ivec2 irSize;
-
 		ofShortPixels depthPix;
-		ofPixels colorPix;
-		ofShortPixels irPix;
-
 		ofTexture depthTex;
+
+		glm::ivec2 colorSize;
+		ofPixels colorPix;
 		ofTexture colorTex;
+
+		glm::ivec2 irSize;
+		ofShortPixels irPix;
 		ofTexture irTex;
+
+		glm::ivec2 depthToWorldSize;
+		ofFloatPixels depthToWorldPix;
+		ofTexture depthToWorldTex;
+
+		ofVboMesh pointCloudMesh;
 	};
 }
