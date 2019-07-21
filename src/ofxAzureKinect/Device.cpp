@@ -30,6 +30,10 @@ namespace ofxAzureKinect
 		, bUpdateColor(false)
 		, bUpdateIr(false)
 		, bUpdatePointCloud(false)
+		, transformation(nullptr)
+		, device(nullptr)
+		, capture(nullptr)
+		, depthToWorldImg(nullptr)
 	{}
 
 	Device::~Device()
@@ -188,9 +192,17 @@ namespace ofxAzureKinect
 
 		ofRemoveListener(ofEvents().update, this, &Device::updateCameras);
 
-		k4a_image_release(this->depthToWorldImg);
-		k4a_transformation_destroy(this->transformation);
-		
+		if (this->depthToWorldImg)
+		{
+			k4a_image_release(this->depthToWorldImg);
+			this->depthToWorldImg = nullptr;
+		}
+		if (this->transformation)
+		{
+			k4a_transformation_destroy(this->transformation);
+			this->transformation = nullptr;
+		}
+
 		k4a_device_stop_cameras(this->device);
 
 		this->bStreaming = false;
@@ -238,7 +250,7 @@ namespace ofxAzureKinect
 			ofLogWarning(__FUNCTION__) << "No Depth16 capture found!";
 		}
 
-		k4a_image_t colorImage;
+		k4a_image_t colorImage = nullptr;
 		if (this->bUpdateColor)
 		{
 			// Probe for a color image.
@@ -273,7 +285,7 @@ namespace ofxAzureKinect
 			}
 		}
 
-		k4a_image_t irImage;
+		k4a_image_t irImage = nullptr;
 		if (this->bUpdateIr)
 		{
 			// Probe for a IR16 image.
@@ -477,6 +489,8 @@ namespace ofxAzureKinect
 		ofLogVerbose(__FUNCTION__) << "Color in Depth " << transformedColorSize.x << "x" << transformedColorSize.y << " stride: " << k4a_image_get_stride_bytes(transformedColorImage) << ".";
 
 		k4a_image_release(transformedColorImage);
+
+		return true;
 	}
 
 	bool Device::isOpen() const

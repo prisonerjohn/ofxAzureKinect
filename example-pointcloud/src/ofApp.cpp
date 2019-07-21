@@ -8,7 +8,7 @@ void ofApp::setup()
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
 	auto kinectSettings = ofxAzureKinect::DeviceSettings();
-	kinectSettings.updateColor = false;
+	kinectSettings.updateColor = true;
 	kinectSettings.updateIr = false;
 	if (this->kinectDevice.open(kinectSettings))
 	{
@@ -39,11 +39,17 @@ void ofApp::draw()
 		{
 			ofDrawAxis(100.0f);
 
-			this->kinectDevice.getColorInDepthTex().bind();
+			if (this->kinectDevice.getColorInDepthTex().isAllocated())
+			{
+				this->kinectDevice.getColorInDepthTex().bind();
+			}
 			this->kinectDevice.getPointCloudVbo().draw(
-				GL_POINTS, 
+				GL_POINTS,
 				0, this->kinectDevice.getPointCloudVbo().getNumVertices());
-			this->kinectDevice.getColorInDepthTex().unbind();
+			if (this->kinectDevice.getColorInDepthTex().isAllocated())
+			{
+				this->kinectDevice.getColorInDepthTex().unbind();
+			}
 		}
 		this->cam.end();
 	}

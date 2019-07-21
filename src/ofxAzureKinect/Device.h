@@ -92,8 +92,8 @@ namespace ofxAzureKinect
 		k4a_device_configuration_t config;
 		k4a_calibration_t calibration;
 		k4a_transformation_t transformation;
-		k4a_device_t device = nullptr;
-		k4a_capture_t capture = nullptr;
+		k4a_device_t device;
+		k4a_capture_t capture;
 
 		ofShortPixels depthPix;
 		ofTexture depthTex;
