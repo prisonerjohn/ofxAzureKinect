@@ -38,7 +38,11 @@ void ofApp::draw()
 		{
 			ofDrawAxis(100.0f);
 
-			this->kinectDevice.getPointCloudMesh().draw();
+			this->kinectDevice.getColorInDepthTex().bind();
+			this->kinectDevice.getPointCloudVbo().draw(
+				GL_POINTS, 
+				0, this->kinectDevice.getPointCloudVbo().getNumVertices());
+			this->kinectDevice.getColorInDepthTex().unbind();
 		}
 		this->cam.end();
 	}

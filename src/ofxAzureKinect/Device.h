@@ -21,7 +21,7 @@ namespace ofxAzureKinect
 		~Device();
 
 		bool open(int deviceIdx = 0);
-		bool close(int deviceIdx = 0);
+		bool close();
 
 		bool startCameras();
 		bool stopCameras();
@@ -29,35 +29,37 @@ namespace ofxAzureKinect
 		bool isOpen() const;
 		bool isStreaming() const;
 
-		const glm::ivec2& getDepthSize() const;
 		const ofShortPixels& getDepthPix() const;
 		const ofTexture& getDepthTex() const;
 
-		const glm::ivec2& getColorSize() const;
 		const ofPixels& getColorPix() const;
 		const ofTexture& getColorTex() const;
 
-		const glm::ivec2& getIrSize() const;
 		const ofShortPixels& getIrPix() const;
 		const ofTexture& getIrTex() const;
 
-		const glm::ivec2& getDepthToWorldSize() const;
 		const ofFloatPixels& getDepthToWorldPix() const;
 		const ofTexture& getDepthToWorldTex() const;
 
-		const ofVboMesh& getPointCloudMesh() const;
+		const ofPixels& getColorInDepthPix() const;
+		const ofTexture& getColorInDepthTex() const;
+
+		const ofVbo& getPointCloudVbo() const;
 
 	private:
 		void updateCameras(ofEventArgs& args);
 
+		bool setupDepthToWorldFrame(int width, int height);
+		bool updateDepthToWorldFrame(const k4a_image_t depthImage);
+
+		bool updateColorInDepthFrame(const k4a_image_t depthImage, const k4a_image_t colorImage);
+
 	private:
 		k4a_device_configuration_t config;
 		k4a_calibration_t calibration;
+		k4a_transformation_t transformation;
 		k4a_device_t device = nullptr;
 		k4a_capture_t capture = nullptr;
-
-		k4a_image_t depthToWorldTable;
-		k4a_image_t pointCloudTable;
 
 		int index;
 		bool bOpen;
@@ -65,22 +67,24 @@ namespace ofxAzureKinect
 
 		std::string serialNumber;
 
-		glm::ivec2 depthSize;
 		ofShortPixels depthPix;
 		ofTexture depthTex;
 
-		glm::ivec2 colorSize;
 		ofPixels colorPix;
 		ofTexture colorTex;
 
-		glm::ivec2 irSize;
 		ofShortPixels irPix;
 		ofTexture irTex;
 
-		glm::ivec2 depthToWorldSize;
+		k4a_image_t depthToWorldImg;
 		ofFloatPixels depthToWorldPix;
 		ofTexture depthToWorldTex;
 
-		ofVboMesh pointCloudMesh;
+		ofPixels colorInDepthPix;
+		ofTexture colorInDepthTex;
+
+		std::vector<glm::vec3> positionCache;
+		std::vector<glm::vec2> uvCache;
+		ofVbo pointCloudVbo;
 	};
 }
