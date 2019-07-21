@@ -254,9 +254,12 @@ namespace ofxAzureKinect
 				{
 					this->colorPix.allocate(colorSize.x, colorSize.y, OF_PIXELS_BGRA);
 					this->colorTex.allocate(colorSize.x, colorSize.y, GL_RGBA8, ofGetUsingArbTex(), GL_BGRA, GL_UNSIGNED_BYTE);
-					// TODO: Fix rendering of BGRA texture.
-					//glTexParameteri(this->colorTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
-					//glTexParameteri(this->colorTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_B, GL_RED);
+					this->colorTex.bind();
+					{
+						glTexParameteri(this->colorTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
+						glTexParameteri(this->colorTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_B, GL_RED);
+					}
+					this->colorTex.unbind();
 				}
 
 				this->colorPix.setFromPixels(colorData, colorSize.x, colorSize.y, 4);
@@ -460,6 +463,12 @@ namespace ofxAzureKinect
 		{
 			this->colorInDepthPix.allocate(transformedColorSize.x, transformedColorSize.y, OF_PIXELS_BGRA);
 			this->colorInDepthTex.allocate(transformedColorSize.x, transformedColorSize.y, GL_RGBA8, ofGetUsingArbTex(), GL_BGRA, GL_UNSIGNED_BYTE);
+			this->colorInDepthTex.bind();
+			{
+				glTexParameteri(this->colorInDepthTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
+				glTexParameteri(this->colorInDepthTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_B, GL_RED);
+			}
+			this->colorInDepthTex.unbind();
 		}
 
 		this->colorInDepthPix.setFromPixels(transformedColorData, transformedColorSize.x, transformedColorSize.y, 4);
