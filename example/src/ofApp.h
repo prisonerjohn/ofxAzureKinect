@@ -2,7 +2,7 @@
 
 #include "ofMain.h"
 
-#include "ofxKinectForAzure.h"
+#include "ofxAzureKinect.h"
 
 class ofApp 
 	: public ofBaseApp 
@@ -27,5 +27,5 @@ public:
 	void gotMessage(ofMessage msg);
 
 private:
-	ofxKinectForAzure::Device kinectDevice;
+	ofxAzureKinect::Device kinectDevice;
 };

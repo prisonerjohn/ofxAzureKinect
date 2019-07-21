@@ -8,7 +8,7 @@
 #include "ofTexture.h"
 #include "ofVectorMath.h"
 
-namespace ofxKinectForAzure
+namespace ofxAzureKinect
 {
 	class Device
 	{

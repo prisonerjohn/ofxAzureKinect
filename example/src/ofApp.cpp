@@ -5,7 +5,7 @@ void ofApp::setup()
 {
 	//ofSetLogLevel(OF_LOG_VERBOSE);
 
-	ofLogNotice(__FUNCTION__) << "Found " << ofxKinectForAzure::Device::getInstalledCount() << " installed devices.";
+	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
 	this->kinectDevice.open();
 	this->kinectDevice.startCameras();

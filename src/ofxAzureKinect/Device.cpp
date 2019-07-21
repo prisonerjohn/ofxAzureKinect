@@ -4,7 +4,7 @@
 
 const int32_t TIMEOUT_IN_MS = 1000;
 
-namespace ofxKinectForAzure
+namespace ofxAzureKinect
 {
 	int Device::getInstalledCount()
 	{
