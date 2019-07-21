@@ -7,8 +7,13 @@ void ofApp::setup()
 
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
-	this->kinectDevice.open();
-	this->kinectDevice.startCameras();
+	auto kinectSettings = ofxAzureKinect::DeviceSettings();
+	kinectSettings.synchronized = false;
+	kinectSettings.updatePointCloud = false;
+	if (this->kinectDevice.open(kinectSettings))
+	{
+		this->kinectDevice.startCameras();
+	}
 }
 
 //--------------------------------------------------------------

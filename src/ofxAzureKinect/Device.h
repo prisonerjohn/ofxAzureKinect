@@ -11,6 +11,29 @@
 
 namespace ofxAzureKinect
 {
+	typedef k4a_depth_mode_t DepthMode;
+	typedef k4a_color_resolution_t ColorResolution;
+	typedef k4a_image_format_t ImageFormat;
+	typedef k4a_fps_t FramesPerSecond;
+
+	struct DeviceSettings
+	{
+		int deviceIndex;
+
+		DepthMode depthMode;
+		ColorResolution colorResolution;
+		ImageFormat colorFormat;
+		FramesPerSecond cameraFps;
+		
+		bool updateColor;
+		bool updateIr;
+		bool updatePointCloud;
+
+		bool synchronized;
+
+		DeviceSettings(int idx = 0);
+	};
+
 	class Device
 	{
 	public:
@@ -20,7 +43,8 @@ namespace ofxAzureKinect
 		Device();
 		~Device();
 
-		bool open(int deviceIdx = 0);
+		bool open(int idx = 0);
+		bool open(DeviceSettings settings);
 		bool close();
 
 		bool startCameras();
@@ -55,17 +79,21 @@ namespace ofxAzureKinect
 		bool updateColorInDepthFrame(const k4a_image_t depthImage, const k4a_image_t colorImage);
 
 	private:
+		int index;
+		bool bOpen;
+		bool bStreaming;
+
+		bool bUpdateColor;
+		bool bUpdateIr;
+		bool bUpdatePointCloud;
+
+		std::string serialNumber;
+
 		k4a_device_configuration_t config;
 		k4a_calibration_t calibration;
 		k4a_transformation_t transformation;
 		k4a_device_t device = nullptr;
 		k4a_capture_t capture = nullptr;
-
-		int index;
-		bool bOpen;
-		bool bStreaming;
-
-		std::string serialNumber;
 
 		ofShortPixels depthPix;
 		ofTexture depthTex;
