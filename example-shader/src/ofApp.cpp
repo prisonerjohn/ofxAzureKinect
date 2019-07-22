@@ -7,13 +7,33 @@ void ofApp::setup()
 
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
+	// Open Kinect.
 	auto kinectSettings = ofxAzureKinect::DeviceSettings();
-	kinectSettings.synchronized = false;
-	kinectSettings.updateWorld = false;
+	kinectSettings.updateIr = false;
+	kinectSettings.updateColor = true;
+	kinectSettings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
+	kinectSettings.updateVbo = false;
 	if (this->kinectDevice.open(kinectSettings))
 	{
 		this->kinectDevice.startCameras();
 	}
+
+	// Load shader.
+	auto shaderSettings = ofShaderSettings();
+	shaderSettings.shaderFiles[GL_VERTEX_SHADER] = "shaders/render.vert";
+	shaderSettings.shaderFiles[GL_GEOMETRY_SHADER] = "shaders/render.geom";
+	shaderSettings.shaderFiles[GL_FRAGMENT_SHADER] = "shaders/render.frag";
+	shaderSettings.bindDefaults = true;
+	if (this->shader.setup(shaderSettings))
+	{
+		ofLogNotice(__FUNCTION__) << "Success loading shader!";
+	}
+
+	// Setup vbo.
+	std::vector<glm::vec3> verts(1);
+	this->vbo.setVertexData(verts.data(), verts.size(), GL_STATIC_DRAW);
+
+	this->pointSize = 3.0f;
 }
 
 //--------------------------------------------------------------
@@ -23,29 +43,57 @@ void ofApp::exit()
 }
 
 //--------------------------------------------------------------
-void ofApp::update()
-{
+void ofApp::update(){
 
 }
 
 //--------------------------------------------------------------
 void ofApp::draw()
 {
-	ofBackground(128);
+	ofBackground(0);
 
 	if (this->kinectDevice.isStreaming())
 	{
-		this->kinectDevice.getColorTex().draw(0, 0, 1280, 720);
-		this->kinectDevice.getDepthTex().draw(1280, 0, 360, 360);
-		this->kinectDevice.getIrTex().draw(1280, 360, 360, 360);
+		this->cam.begin();
+		{
+			ofDrawAxis(100.0f);
+
+			ofPushMatrix();
+			{
+				ofRotateXDeg(180);
+
+				this->shader.begin();
+				{
+					this->shader.setUniformTexture("uDepthTex", this->kinectDevice.getDepthTex(), 1);
+					this->shader.setUniformTexture("uDepthToWorldTex", this->kinectDevice.getDepthToWorldTex(), 2);
+					this->shader.setUniformTexture("uColorTex", this->kinectDevice.getColorInDepthTex(), 3);
+					this->shader.setUniform2i("uFrameSize", this->kinectDevice.getDepthTex().getWidth(), this->kinectDevice.getDepthTex().getHeight());
+					this->shader.setUniform1f("uSpriteSize", this->pointSize);
+
+					int numPoints = this->kinectDevice.getDepthTex().getWidth() * this->kinectDevice.getDepthTex().getHeight();
+					this->vbo.drawInstanced(GL_POINTS, 0, 1, numPoints);
+				}
+				this->shader.end();
+			}
+			ofPopMatrix();
+		}
+		this->cam.end();
 	}
 
 	ofDrawBitmapString(ofToString(ofGetFrameRate(), 2) + " FPS", 10, 20);
 }
 
 //--------------------------------------------------------------
-void ofApp::keyPressed(int key){
-
+void ofApp::keyPressed(int key)
+{
+	if (key == OF_KEY_UP)
+	{
+		this->pointSize *= 2;
+	}
+	else if (key == OF_KEY_DOWN)
+	{
+		this->pointSize /= 2;
+	}
 }
 
 //--------------------------------------------------------------

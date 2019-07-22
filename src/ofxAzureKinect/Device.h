@@ -3,6 +3,7 @@
 #include <string>
 #include <k4a/k4a.h>
 
+#include "ofBufferObject.h"
 #include "ofEvents.h"
 #include "ofPixels.h"
 #include "ofTexture.h"
@@ -27,7 +28,8 @@ namespace ofxAzureKinect
 		
 		bool updateColor;
 		bool updateIr;
-		bool updatePointCloud;
+		bool updateWorld;
+		bool updateVbo;
 
 		bool synchronized;
 
@@ -74,7 +76,7 @@ namespace ofxAzureKinect
 		void updateCameras(ofEventArgs& args);
 
 		bool setupDepthToWorldFrame(int width, int height);
-		bool updateDepthToWorldFrame(const k4a_image_t depthImage);
+		bool updateDepthToWorldVbo(const k4a_image_t depthImage);
 
 		bool updateColorInDepthFrame(const k4a_image_t depthImage, const k4a_image_t colorImage);
 
@@ -85,7 +87,8 @@ namespace ofxAzureKinect
 
 		bool bUpdateColor;
 		bool bUpdateIr;
-		bool bUpdatePointCloud;
+		bool bUpdateWorld;
+		bool bUpdateVbo;
 
 		std::string serialNumber;
 

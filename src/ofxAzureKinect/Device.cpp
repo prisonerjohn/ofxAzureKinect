@@ -14,7 +14,8 @@ namespace ofxAzureKinect
 		, cameraFps(K4A_FRAMES_PER_SECOND_30)
 		, updateColor(true)
 		, updateIr(true)
-		, updatePointCloud(true)
+		, updateWorld(true)
+		, updateVbo(true)
 		, synchronized(true)
 	{}
 
@@ -29,7 +30,8 @@ namespace ofxAzureKinect
 		, bStreaming(false)
 		, bUpdateColor(false)
 		, bUpdateIr(false)
-		, bUpdatePointCloud(false)
+		, bUpdateWorld(false)
+		, bUpdateVbo(false)
 		, transformation(nullptr)
 		, device(nullptr)
 		, capture(nullptr)
@@ -117,7 +119,8 @@ namespace ofxAzureKinect
 
 		this->bUpdateColor = settings.updateColor;
 		this->bUpdateIr = settings.updateIr;
-		this->bUpdatePointCloud = settings.updatePointCloud;
+		this->bUpdateWorld = settings.updateWorld;
+		this->bUpdateVbo = settings.updateWorld && settings.updateVbo;
 
 		ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " with serial number " << this->serialNumber << ".";
 
@@ -163,7 +166,7 @@ namespace ofxAzureKinect
 			this->transformation = k4a_transformation_create(&this->calibration);
 		}
 
-		if (this->bUpdatePointCloud)
+		if (this->bUpdateWorld)
 		{
 			// Load depth to world LUT.
 			this->setupDepthToWorldFrame(
@@ -315,9 +318,9 @@ namespace ofxAzureKinect
 			}
 		}
 
-		if (this->bUpdatePointCloud)
+		if (this->bUpdateVbo)
 		{
-			this->updateDepthToWorldFrame(depthImage);
+			this->updateDepthToWorldVbo(depthImage);
 		}
 
 		if (colorImage && this->bUpdateColor)
@@ -401,7 +404,7 @@ namespace ofxAzureKinect
 		return true;
 	}
 
-	bool Device::updateDepthToWorldFrame(const k4a_image_t depthImage)
+	bool Device::updateDepthToWorldVbo(const k4a_image_t depthImage)
 	{
 		const auto depthSize = glm::ivec2(
 			k4a_image_get_width_pixels(depthImage),
@@ -409,7 +412,7 @@ namespace ofxAzureKinect
 
 		const auto depthData = (uint16_t*)(void*)k4a_image_get_buffer(depthImage);
 		const auto depthToWorldData = (k4a_float2_t *)(void *)k4a_image_get_buffer(this->depthToWorldImg);
-		
+
 		this->positionCache.resize(depthSize.x * depthSize.y);
 		this->uvCache.resize(depthSize.x * depthSize.y);
 
