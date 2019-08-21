@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-#include <k4a/k4a.h>
+#include <k4a/k4a.hpp>
 
 #include "ofBufferObject.h"
 #include "ofEvents.h"
@@ -75,10 +75,10 @@ namespace ofxAzureKinect
 	private:
 		void updateCameras(ofEventArgs& args);
 
-		bool setupDepthToWorldFrame(int width, int height);
-		bool updateDepthToWorldVbo(const k4a_image_t depthImage);
+		bool setupDepthToWorldFrame();
+		bool updateDepthToWorldVbo(k4a::image& depthImg);
 
-		bool updateColorInDepthFrame(const k4a_image_t depthImage, const k4a_image_t colorImage);
+		bool updateColorInDepthFrame(const k4a::image& depthImg, const k4a::image& colorImg);
 
 	private:
 		int index;
@@ -93,10 +93,12 @@ namespace ofxAzureKinect
 		std::string serialNumber;
 
 		k4a_device_configuration_t config;
-		k4a_calibration_t calibration;
-		k4a_transformation_t transformation;
-		k4a_device_t device;
-		k4a_capture_t capture;
+		k4a::calibration calibration;
+		k4a::transformation transformation;
+		k4a::device device;
+		k4a::capture capture;
+
+		tjhandle jpegDecompressor;
 
 		ofShortPixels depthPix;
 		ofTexture depthTex;
@@ -107,7 +109,7 @@ namespace ofxAzureKinect
 		ofShortPixels irPix;
 		ofTexture irTex;
 
-		k4a_image_t depthToWorldImg;
+		k4a::image depthToWorldImg;
 		ofFloatPixels depthToWorldPix;
 		ofTexture depthToWorldTex;
 
