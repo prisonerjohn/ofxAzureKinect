@@ -195,15 +195,14 @@ namespace ofxAzureKinect
 		auto depthImg = this->capture.get_depth_image();
 		if (depthImg)
 		{
-			const auto depthData = reinterpret_cast<uint16_t*>(depthImg.get_buffer());
 			const auto depthDims = glm::ivec2(depthImg.get_width_pixels(), depthImg.get_height_pixels());
-		
 			if (!depthPix.isAllocated())
 			{
 				this->depthPix.allocate(depthDims.x, depthDims.y, 1);
 				this->depthTex.allocate(depthDims.x, depthDims.y, GL_R16);
 			}
 
+			const auto depthData = reinterpret_cast<uint16_t*>(depthImg.get_buffer());
 			this->depthPix.setFromPixels(depthData, depthDims.x, depthDims.y, 1);
 			this->depthTex.loadData(this->depthPix);
 
@@ -221,22 +220,41 @@ namespace ofxAzureKinect
 			colorImg = this->capture.get_color_image();
 			if (colorImg)
 			{
-				const auto colorData = reinterpret_cast<uint8_t*>(colorImg.get_buffer());
 				const auto colorDims = glm::ivec2(colorImg.get_width_pixels(), colorImg.get_height_pixels());
-
 				if (!colorPix.isAllocated())
 				{
 					this->colorPix.allocate(colorDims.x, colorDims.y, OF_PIXELS_BGRA);
 					this->colorTex.allocate(colorDims.x, colorDims.y, GL_RGBA8, ofGetUsingArbTex(), GL_BGRA, GL_UNSIGNED_BYTE);
-					this->colorTex.bind();
+	
+					if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
 					{
-						glTexParameteri(this->colorTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
-						glTexParameteri(this->colorTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_B, GL_RED);
+						this->colorTex.bind();
+						{
+							glTexParameteri(this->colorTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
+							glTexParameteri(this->colorTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_B, GL_RED);
+						}
+						this->colorTex.unbind();
 					}
-					this->colorTex.unbind();
 				}
 
-				this->colorPix.setFromPixels(colorData, colorDims.x, colorDims.y, 4);
+				if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_MJPG)
+				{
+					const int decompressStatus = tjDecompress2(this->jpegDecompressor,
+						colorImg.get_buffer(),
+						static_cast<unsigned long>(colorImg.get_size()),
+						this->colorPix.getData(),
+						colorDims.x,
+						0, // pitch
+						colorDims.y,
+						TJPF_BGRA,
+						TJFLAG_FASTDCT | TJFLAG_FASTUPSAMPLE);
+				}
+				else
+				{
+					const auto colorData = reinterpret_cast<uint8_t*>(colorImg.get_buffer());
+					this->colorPix.setFromPixels(colorData, colorDims.x, colorDims.y, 4);
+				}
+
 				this->colorTex.loadData(this->colorPix);
 
 				ofLogVerbose(__FUNCTION__) << "Capture Color " << colorDims.x << "x" << colorDims.y << " stride: " << colorImg.get_stride_bytes() << ".";
@@ -254,9 +272,7 @@ namespace ofxAzureKinect
 			irImg = this->capture.get_ir_image();
 			if (irImg)
 			{
-				const auto irData = reinterpret_cast<uint16_t*>(irImg.get_buffer());
 				const auto irSize = glm::ivec2(irImg.get_width_pixels(), irImg.get_height_pixels());
-
 				if (!this->irPix.isAllocated())
 				{
 					this->irPix.allocate(irSize.x, irSize.y, 1);
@@ -264,6 +280,7 @@ namespace ofxAzureKinect
 					this->irTex.setRGToRGBASwizzles(true);
 				}
 
+				const auto irData = reinterpret_cast<uint16_t*>(irImg.get_buffer());
 				this->irPix.setFromPixels(irData, irSize.x, irSize.y, 1);
 				this->irTex.loadData(this->irPix);
 
@@ -280,8 +297,9 @@ namespace ofxAzureKinect
 			this->updateDepthToWorldVbo(depthImg);
 		}
 
-		if (colorImg && this->bUpdateColor)
+		if (colorImg && this->bUpdateColor && this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
 		{
+			// TODO: Fix this for non-BGRA formats, maybe always keep a BGRA k4a::image around.
 			this->updateColorInDepthFrame(depthImg, colorImg);
 		}
 

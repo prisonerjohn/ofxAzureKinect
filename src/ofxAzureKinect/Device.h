@@ -2,6 +2,7 @@
 
 #include <string>
 #include <k4a/k4a.hpp>
+#include "turbojpeg.h"
 
 #include "ofBufferObject.h"
 #include "ofEvents.h"
