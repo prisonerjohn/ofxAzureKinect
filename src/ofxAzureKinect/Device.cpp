@@ -316,6 +316,7 @@ namespace ofxAzureKinect
 		if (colorImg && this->bUpdateColor && this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
 		{
 			// TODO: Fix this for non-BGRA formats, maybe always keep a BGRA k4a::image around.
+			this->updateDepthInColorFrame(depthImg, colorImg);
 			this->updateColorInDepthFrame(depthImg, colorImg);
 		}
 
@@ -473,6 +474,43 @@ namespace ofxAzureKinect
 		this->pointCloudVbo.setVertexData(this->positionCache.data(), numPoints, GL_STREAM_DRAW);
 		this->pointCloudVbo.setTexCoordData(this->uvCache.data(), numPoints, GL_STREAM_DRAW);
 
+		return true;
+	}
+
+	bool Device::updateDepthInColorFrame(const k4a::image& depthImg, const k4a::image& colorImg)
+	{
+		const auto colorDims = glm::ivec2(colorImg.get_width_pixels(), colorImg.get_height_pixels());
+
+		k4a::image transformedDepthImg;
+		try
+		{
+			transformedDepthImg = k4a::image::create(K4A_IMAGE_FORMAT_CUSTOM,
+				colorDims.x, colorDims.y,
+				colorDims.x * static_cast<int>(sizeof(uint16_t)));
+
+			this->transformation.depth_image_to_color_camera(depthImg, &transformedDepthImg);
+		}
+		catch (const k4a::error& e)
+		{
+			ofLogError(__FUNCTION__) << e.what();
+			return false;
+		}
+
+		const auto transformedColorData = reinterpret_cast<uint16_t*>(transformedDepthImg.get_buffer());
+
+		if (!this->depthInColorPix.isAllocated())
+		{
+			this->depthInColorPix.allocate(colorDims.x, colorDims.y, 1);
+			this->depthInColorTex.allocate(colorDims.x, colorDims.y, GL_R16);
+			this->depthInColorTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
+		}
+
+		this->depthInColorPix.setFromPixels(transformedColorData, colorDims.x, colorDims.y, 1);
+		this->depthInColorTex.loadData(this->depthInColorPix);
+
+		ofLogVerbose(__FUNCTION__) << "Depth in Color " << colorDims.x << "x" << colorDims.y << " stride: " << transformedDepthImg.get_stride_bytes() << ".";
+
+		transformedDepthImg.reset();
 
 		return true;
 	}
@@ -580,6 +618,17 @@ namespace ofxAzureKinect
 	{
 		return this->colorToWorldTex;
 	}
+
+	const ofShortPixels& Device::getDepthInColorPix() const
+	{
+		return this->depthInColorPix;
+	}
+
+	const ofTexture& Device::getDepthInColorTex() const
+	{
+		return this->depthInColorTex;
+	}
+
 	const ofPixels& Device::getColorInDepthPix() const
 	{
 		return this->colorInDepthPix;
