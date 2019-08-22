@@ -137,7 +137,13 @@ namespace ofxAzureKinect
 		if (this->bUpdateWorld)
 		{
 			// Load depth to world LUT.
-			this->setupDepthToWorldFrame();
+			this->setupDepthToWorldTable();
+
+			if (this->bUpdateColor)
+			{
+				// Load color to world LUT.
+				this->setupColorToWorldTable();
+			}
 		}
 
 		// Start cameras.
@@ -315,19 +321,69 @@ namespace ofxAzureKinect
 		this->capture.reset();
 	}
 
-	bool Device::setupDepthToWorldFrame()
+	bool Device::setupDepthToWorldTable()
 	{
-		const k4a_calibration_camera_t& calibrationCamera = this->calibration.depth_camera_calibration;
-		
-		const auto depthDims = glm::ivec2(
+		if (this->setupImageToWorldTable(K4A_CALIBRATION_TYPE_DEPTH, this->depthToWorldImg))
+		{
+			const int width = this->depthToWorldImg.get_width_pixels();
+			const int height = this->depthToWorldImg.get_height_pixels();
+
+			const auto data = reinterpret_cast<float *>(this->depthToWorldImg.get_buffer());
+
+			if (!this->depthToWorldPix.isAllocated())
+			{
+				this->depthToWorldPix.allocate(width, height, 2);
+				this->depthToWorldTex.allocate(width, height, GL_RG32F);
+				this->depthToWorldTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
+			}
+
+			this->depthToWorldPix.setFromPixels(data, width, height, 2);
+			this->depthToWorldTex.loadData(this->depthToWorldPix);
+
+			return true;
+		}
+
+		return false;
+	}
+
+	bool Device::setupColorToWorldTable()
+	{
+		if (this->setupImageToWorldTable(K4A_CALIBRATION_TYPE_COLOR, this->colorToWorldImg))
+		{
+			const int width = this->colorToWorldImg.get_width_pixels();
+			const int height = this->colorToWorldImg.get_height_pixels();
+
+			const auto data = reinterpret_cast<float *>(this->colorToWorldImg.get_buffer());
+
+			if (!this->colorToWorldPix.isAllocated())
+			{
+				this->colorToWorldPix.allocate(width, height, 2);
+				this->colorToWorldTex.allocate(width, height, GL_RG32F);
+				this->colorToWorldTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
+			}
+
+			this->colorToWorldPix.setFromPixels(data, width, height, 2);
+			this->colorToWorldTex.loadData(this->colorToWorldPix);
+
+			return true;
+		}
+
+		return false;
+	}
+
+	bool Device::setupImageToWorldTable(k4a_calibration_type_t type, k4a::image& img)
+	{
+		const k4a_calibration_camera_t& calibrationCamera = (type == K4A_CALIBRATION_TYPE_DEPTH) ? this->calibration.depth_camera_calibration : this->calibration.color_camera_calibration;
+
+		const auto dims = glm::ivec2(
 			calibrationCamera.resolution_width,
 			calibrationCamera.resolution_height);
 
 		try
 		{
-			this->depthToWorldImg = k4a::image::create(K4A_IMAGE_FORMAT_CUSTOM,
-				depthDims.x, depthDims.y,
-				depthDims.x * static_cast<int>(sizeof(k4a_float2_t)));
+			img = k4a::image::create(K4A_IMAGE_FORMAT_CUSTOM,
+				dims.x, dims.y,
+				dims.x * static_cast<int>(sizeof(k4a_float2_t)));
 		}
 		catch (const k4a::error& e)
 		{
@@ -335,44 +391,35 @@ namespace ofxAzureKinect
 			return false;
 		}
 
-		auto depthToWorldData = reinterpret_cast<k4a_float2_t*>(this->depthToWorldImg.get_buffer());
-		
+		auto imgData = reinterpret_cast<k4a_float2_t*>(img.get_buffer());
+
 		k4a_float2_t p;
 		k4a_float3_t ray;
 		int idx = 0;
-		for (int y = 0; y < depthDims.y; ++y)
+		for (int y = 0; y < dims.y; ++y)
 		{
 			p.xy.y = static_cast<float>(y);
 
-			for (int x = 0; x < depthDims.x; ++x)
+			for (int x = 0; x < dims.x; ++x)
 			{
 				p.xy.x = static_cast<float>(x);
 
-				if (this->calibration.convert_2d_to_3d(p, 1.f, K4A_CALIBRATION_TYPE_DEPTH, K4A_CALIBRATION_TYPE_DEPTH, &ray))
+				if (this->calibration.convert_2d_to_3d(p, 1.f, type, type, &ray))
 				{
-					depthToWorldData[idx].xy.x = ray.xyz.x;
-					depthToWorldData[idx].xy.y = ray.xyz.y;
+					imgData[idx].xy.x = ray.xyz.x;
+					imgData[idx].xy.y = ray.xyz.y;
 				}
 				else
 				{
 					// The pixel is invalid.
-					depthToWorldData[idx].xy.x = 0;
-					depthToWorldData[idx].xy.y = 0;
+					//ofLogNotice(__FUNCTION__) << "Pixel " << depthToWorldData[idx].xy.x << ", " << depthToWorldData[idx].xy.y << " is invalid";
+					imgData[idx].xy.x = 0;
+					imgData[idx].xy.y = 0;
 				}
 
 				++idx;
 			}
 		}
-
-		if (!this->depthToWorldPix.isAllocated())
-		{
-			this->depthToWorldPix.allocate(depthDims.x, depthDims.y, 2);
-			this->depthToWorldTex.allocate(depthDims.x, depthDims.y, GL_RG32F);
-			this->depthToWorldTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
-		}
-
-		this->depthToWorldPix.setFromPixels((float *)depthToWorldData, depthDims.x, depthDims.y, 2);
-		this->depthToWorldTex.loadData(this->depthToWorldPix);
 
 		return true;
 	}
@@ -510,6 +557,15 @@ namespace ofxAzureKinect
 		return this->depthToWorldTex;
 	}
 
+	const ofFloatPixels& Device::getColorToWorldPix() const
+	{
+		return this->colorToWorldPix;
+	}
+
+	const ofTexture& Device::getColorToWorldTex() const
+	{
+		return this->colorToWorldTex;
+	}
 	const ofPixels& Device::getColorInDepthPix() const
 	{
 		return this->colorInDepthPix;
