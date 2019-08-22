@@ -486,7 +486,7 @@ namespace ofxAzureKinect
 		{
 			transformedColorImg = k4a::image::create(K4A_IMAGE_FORMAT_COLOR_BGRA32,
 				depthDims.x, depthDims.y,
-				depthDims.x * 4 * (int)sizeof(uint8_t));
+				depthDims.x * 4 * static_cast<int>(sizeof(uint8_t)));
 
 			this->transformation.color_image_to_depth_camera(depthImg, colorImg, &transformedColorImg);
 		}
@@ -497,12 +497,11 @@ namespace ofxAzureKinect
 		}
 
 		const auto transformedColorData = reinterpret_cast<uint8_t*>(transformedColorImg.get_buffer());
-		const auto transformedColorDims = glm::ivec2(transformedColorImg.get_width_pixels(), transformedColorImg.get_height_pixels());
 
 		if (!this->colorInDepthPix.isAllocated())
 		{
-			this->colorInDepthPix.allocate(transformedColorDims.x, transformedColorDims.y, OF_PIXELS_BGRA);
-			this->colorInDepthTex.allocate(transformedColorDims.x, transformedColorDims.y, GL_RGBA8, ofGetUsingArbTex(), GL_BGRA, GL_UNSIGNED_BYTE);
+			this->colorInDepthPix.allocate(depthDims.x, depthDims.y, OF_PIXELS_BGRA);
+			this->colorInDepthTex.allocate(depthDims.x, depthDims.y, GL_RGBA8, ofGetUsingArbTex(), GL_BGRA, GL_UNSIGNED_BYTE);
 			this->colorInDepthTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 			this->colorInDepthTex.bind();
 			{
@@ -512,10 +511,10 @@ namespace ofxAzureKinect
 			this->colorInDepthTex.unbind();
 		}
 
-		this->colorInDepthPix.setFromPixels(transformedColorData, transformedColorDims.x, transformedColorDims.y, 4);
+		this->colorInDepthPix.setFromPixels(transformedColorData, depthDims.x, depthDims.y, 4);
 		this->colorInDepthTex.loadData(this->colorInDepthPix);
 
-		ofLogVerbose(__FUNCTION__) << "Color in Depth " << transformedColorDims.x << "x" << transformedColorDims.y << " stride: " << transformedColorImg.get_stride_bytes() << ".";
+		ofLogVerbose(__FUNCTION__) << "Color in Depth " << depthDims.x << "x" << depthDims.y << " stride: " << transformedColorImg.get_stride_bytes() << ".";
 
 		transformedColorImg.reset();
 
