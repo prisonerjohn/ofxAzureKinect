@@ -33,4 +33,5 @@ private:
 	ofShader shader;
 
 	float pointSize;
+	bool useColorSpace;
 };

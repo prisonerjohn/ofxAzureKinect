@@ -68,6 +68,12 @@ namespace ofxAzureKinect
 		const ofFloatPixels& getDepthToWorldPix() const;
 		const ofTexture& getDepthToWorldTex() const;
 
+		const ofFloatPixels& getColorToWorldPix() const;
+		const ofTexture& getColorToWorldTex() const;
+
+		const ofShortPixels& getDepthInColorPix() const;
+		const ofTexture& getDepthInColorTex() const;
+
 		const ofPixels& getColorInDepthPix() const;
 		const ofTexture& getColorInDepthTex() const;
 
@@ -76,9 +82,13 @@ namespace ofxAzureKinect
 	private:
 		void updateCameras(ofEventArgs& args);
 
-		bool setupDepthToWorldFrame();
-		bool updateDepthToWorldVbo(k4a::image& depthImg);
+		bool setupDepthToWorldTable();
+		bool setupColorToWorldTable();
+		bool setupImageToWorldTable(k4a_calibration_type_t type, k4a::image& img);
 
+		bool updateWorldVbo(k4a::image& frameImg, k4a::image& tableImg);
+
+		bool updateDepthInColorFrame(const k4a::image& depthImg, const k4a::image& colorImg);
 		bool updateColorInDepthFrame(const k4a::image& depthImg, const k4a::image& colorImg);
 
 	private:
@@ -113,6 +123,13 @@ namespace ofxAzureKinect
 		k4a::image depthToWorldImg;
 		ofFloatPixels depthToWorldPix;
 		ofTexture depthToWorldTex;
+
+		k4a::image colorToWorldImg;
+		ofFloatPixels colorToWorldPix;
+		ofTexture colorToWorldTex;
+
+		ofShortPixels depthInColorPix;
+		ofTexture depthInColorTex;
 
 		ofPixels colorInDepthPix;
 		ofTexture colorInDepthTex;

@@ -34,6 +34,7 @@ void ofApp::setup()
 	this->vbo.setVertexData(verts.data(), verts.size(), GL_STATIC_DRAW);
 
 	this->pointSize = 3.0f;
+	this->useColorSpace = false;
 }
 
 //--------------------------------------------------------------
@@ -56,6 +57,8 @@ void ofApp::draw()
 	{
 		this->cam.begin();
 		{
+			ofEnableDepthTest();
+
 			ofDrawAxis(100.0f);
 
 			ofPushMatrix();
@@ -64,13 +67,29 @@ void ofApp::draw()
 
 				this->shader.begin();
 				{
-					this->shader.setUniformTexture("uDepthTex", this->kinectDevice.getDepthTex(), 1);
-					this->shader.setUniformTexture("uDepthToWorldTex", this->kinectDevice.getDepthToWorldTex(), 2);
-					this->shader.setUniformTexture("uColorTex", this->kinectDevice.getColorInDepthTex(), 3);
-					this->shader.setUniform2i("uFrameSize", this->kinectDevice.getDepthTex().getWidth(), this->kinectDevice.getDepthTex().getHeight());
 					this->shader.setUniform1f("uSpriteSize", this->pointSize);
 
-					int numPoints = this->kinectDevice.getDepthTex().getWidth() * this->kinectDevice.getDepthTex().getHeight();
+					int numPoints;
+					
+					if (this->useColorSpace)
+					{
+						this->shader.setUniformTexture("uDepthTex", this->kinectDevice.getDepthInColorTex(), 1);
+						this->shader.setUniformTexture("uWorldTex", this->kinectDevice.getColorToWorldTex(), 2);
+						this->shader.setUniformTexture("uColorTex", this->kinectDevice.getColorTex(), 3);
+						this->shader.setUniform2i("uFrameSize", this->kinectDevice.getColorTex().getWidth(), this->kinectDevice.getColorTex().getHeight());
+					
+						numPoints = this->kinectDevice.getColorTex().getWidth() * this->kinectDevice.getColorTex().getHeight();
+					}
+					else
+					{
+						this->shader.setUniformTexture("uDepthTex", this->kinectDevice.getDepthTex(), 1);
+						this->shader.setUniformTexture("uWorldTex", this->kinectDevice.getDepthToWorldTex(), 2);
+						this->shader.setUniformTexture("uColorTex", this->kinectDevice.getColorInDepthTex(), 3);
+						this->shader.setUniform2i("uFrameSize", this->kinectDevice.getDepthTex().getWidth(), this->kinectDevice.getDepthTex().getHeight());
+					
+						numPoints = this->kinectDevice.getDepthTex().getWidth() * this->kinectDevice.getDepthTex().getHeight();
+					}
+
 					this->vbo.drawInstanced(GL_POINTS, 0, 1, numPoints);
 				}
 				this->shader.end();
@@ -93,6 +112,10 @@ void ofApp::keyPressed(int key)
 	else if (key == OF_KEY_DOWN)
 	{
 		this->pointSize /= 2;
+	}
+	else if (key == ' ')
+	{
+		this->useColorSpace ^= 1;
 	}
 }
 

@@ -15,12 +15,12 @@ in vec2 vTexCoord[];
 flat in int vValid[];
 
 out vec2 gTexCoord;
-flat out int gValid;
 
 void main()
 {
+    if (vValid[0] == 0) return;
+
     gTexCoord = vTexCoord[0];
-    gValid = vValid[0];
 
     for (int i = 0; i < gl_in.length(); ++i)
     {
