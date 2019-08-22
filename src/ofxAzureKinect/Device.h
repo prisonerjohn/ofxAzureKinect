@@ -78,11 +78,11 @@ namespace ofxAzureKinect
 	private:
 		void updateCameras(ofEventArgs& args);
 
-		bool updateDepthToWorldVbo(k4a::image& depthImg);
 		bool setupDepthToWorldTable();
 		bool setupColorToWorldTable();
 		bool setupImageToWorldTable(k4a_calibration_type_t type, k4a::image& img);
 
+		bool updateWorldVbo(k4a::image& frameImg, k4a::image& tableImg);
 		bool updateColorInDepthFrame(const k4a::image& depthImg, const k4a::image& colorImg);
 
 	private:

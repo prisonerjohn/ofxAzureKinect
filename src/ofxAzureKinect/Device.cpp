@@ -303,7 +303,14 @@ namespace ofxAzureKinect
 
 		if (this->bUpdateVbo)
 		{
-			this->updateDepthToWorldVbo(depthImg);
+			if (this->bUpdateColor)
+			{
+				this->updateWorldVbo(colorImg, this->colorToWorldImg);
+			}
+			else
+			{
+				this->updateWorldVbo(depthImg, this->depthToWorldImg);
+			}
 		}
 
 		if (colorImg && this->bUpdateColor && this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
@@ -424,29 +431,36 @@ namespace ofxAzureKinect
 		return true;
 	}
 
-	bool Device::updateDepthToWorldVbo(k4a::image& depthImg)
+	bool Device::updateWorldVbo(k4a::image& frameImg, k4a::image& tableImg)
 	{
-		const auto depthDims = glm::ivec2(depthImg.get_width_pixels(), depthImg.get_height_pixels());
+		const auto frameDims = glm::ivec2(frameImg.get_width_pixels(), frameImg.get_height_pixels());
+		const auto tableDims = glm::ivec2(tableImg.get_width_pixels(), tableImg.get_height_pixels());
+		if (frameDims != tableDims)
+		{
+			ofLogError(__FUNCTION__) << "Image dims mismatch! " << frameDims << " vs " << tableDims;
+			return false;
+		}
 
-		const auto depthData = reinterpret_cast<uint16_t*>(depthImg.get_buffer());
-		const auto depthToWorldData = reinterpret_cast<k4a_float2_t*>(this->depthToWorldImg.get_buffer());
+		const auto frameData = reinterpret_cast<uint16_t*>(frameImg.get_buffer());
+		const auto tableData = reinterpret_cast<k4a_float2_t*>(tableImg.get_buffer());
 
-		this->positionCache.resize(depthDims.x * depthDims.y);
-		this->uvCache.resize(depthDims.x * depthDims.y);
+		this->positionCache.resize(frameDims.x * frameDims.y);
+		this->uvCache.resize(frameDims.x * frameDims.y);
 
 		int numPoints = 0;
-		for (int y = 0; y < depthDims.y; ++y)
+		for (int y = 0; y < frameDims.y; ++y)
 		{
-			for (int x = 0; x < depthDims.x; ++x)
+			for (int x = 0; x < frameDims.x; ++x)
 			{
-				int idx = y * depthDims.x + x;
-				if (depthData[idx] != 0 && 
-					depthToWorldData[idx].xy.x != 0 && depthToWorldData[idx].xy.y != 0)
+				int idx = y * frameDims.x + x;
+				if (frameData[idx] != 0 &&
+					tableData[idx].xy.x != 0 && tableData[idx].xy.y != 0)
 				{
+					float depthVal = static_cast<float>(frameData[idx]);
 					this->positionCache[numPoints] = glm::vec3(
-						depthToWorldData[idx].xy.x * static_cast<float>(depthData[idx]),
-						depthToWorldData[idx].xy.y * static_cast<float>(depthData[idx]),
-						static_cast<float>(depthData[idx])
+						tableData[idx].xy.x * depthVal,
+						tableData[idx].xy.y * depthVal,
+						depthVal
 					);
 
 					this->uvCache[numPoints] = glm::vec2(x, y);
@@ -456,8 +470,9 @@ namespace ofxAzureKinect
 			}
 		}
 
-		this->pointCloudVbo.setVertexData(this->positionCache.data(), numPoints, GL_DYNAMIC_DRAW);
-		this->pointCloudVbo.setTexCoordData(this->uvCache.data(), numPoints, GL_DYNAMIC_DRAW);
+		this->pointCloudVbo.setVertexData(this->positionCache.data(), numPoints, GL_STREAM_DRAW);
+		this->pointCloudVbo.setTexCoordData(this->uvCache.data(), numPoints, GL_STREAM_DRAW);
+
 
 		return true;
 	}
