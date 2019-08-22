@@ -200,6 +200,7 @@ namespace ofxAzureKinect
 			{
 				this->depthPix.allocate(depthDims.x, depthDims.y, 1);
 				this->depthTex.allocate(depthDims.x, depthDims.y, GL_R16);
+				this->depthTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 			}
 
 			const auto depthData = reinterpret_cast<uint16_t*>(depthImg.get_buffer());
@@ -225,7 +226,8 @@ namespace ofxAzureKinect
 				{
 					this->colorPix.allocate(colorDims.x, colorDims.y, OF_PIXELS_BGRA);
 					this->colorTex.allocate(colorDims.x, colorDims.y, GL_RGBA8, ofGetUsingArbTex(), GL_BGRA, GL_UNSIGNED_BYTE);
-	
+					this->colorTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
+
 					if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
 					{
 						this->colorTex.bind();
@@ -277,6 +279,7 @@ namespace ofxAzureKinect
 				{
 					this->irPix.allocate(irSize.x, irSize.y, 1);
 					this->irTex.allocate(irSize.x, irSize.y, GL_R16);
+					this->irTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 					this->irTex.setRGToRGBASwizzles(true);
 				}
 
@@ -365,6 +368,7 @@ namespace ofxAzureKinect
 		{
 			this->depthToWorldPix.allocate(depthDims.x, depthDims.y, 2);
 			this->depthToWorldTex.allocate(depthDims.x, depthDims.y, GL_RG32F);
+			this->depthToWorldTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 		}
 
 		this->depthToWorldPix.setFromPixels((float *)depthToWorldData, depthDims.x, depthDims.y, 2);
@@ -437,6 +441,7 @@ namespace ofxAzureKinect
 		{
 			this->colorInDepthPix.allocate(transformedColorDims.x, transformedColorDims.y, OF_PIXELS_BGRA);
 			this->colorInDepthTex.allocate(transformedColorDims.x, transformedColorDims.y, GL_RGBA8, ofGetUsingArbTex(), GL_BGRA, GL_UNSIGNED_BYTE);
+			this->colorInDepthTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 			this->colorInDepthTex.bind();
 			{
 				glTexParameteri(this->colorInDepthTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
