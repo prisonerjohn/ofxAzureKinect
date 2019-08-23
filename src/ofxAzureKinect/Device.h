@@ -1,7 +1,8 @@
 #pragma once
 
 #include <string>
-#include <k4a/k4a.h>
+#include <k4a/k4a.hpp>
+#include "turbojpeg.h"
 
 #include "ofBufferObject.h"
 #include "ofEvents.h"
@@ -67,6 +68,12 @@ namespace ofxAzureKinect
 		const ofFloatPixels& getDepthToWorldPix() const;
 		const ofTexture& getDepthToWorldTex() const;
 
+		const ofFloatPixels& getColorToWorldPix() const;
+		const ofTexture& getColorToWorldTex() const;
+
+		const ofShortPixels& getDepthInColorPix() const;
+		const ofTexture& getDepthInColorTex() const;
+
 		const ofPixels& getColorInDepthPix() const;
 		const ofTexture& getColorInDepthTex() const;
 
@@ -75,10 +82,14 @@ namespace ofxAzureKinect
 	private:
 		void updateCameras(ofEventArgs& args);
 
-		bool setupDepthToWorldFrame(int width, int height);
-		bool updateDepthToWorldVbo(const k4a_image_t depthImage);
+		bool setupDepthToWorldTable();
+		bool setupColorToWorldTable();
+		bool setupImageToWorldTable(k4a_calibration_type_t type, k4a::image& img);
 
-		bool updateColorInDepthFrame(const k4a_image_t depthImage, const k4a_image_t colorImage);
+		bool updateWorldVbo(k4a::image& frameImg, k4a::image& tableImg);
+
+		bool updateDepthInColorFrame(const k4a::image& depthImg, const k4a::image& colorImg);
+		bool updateColorInDepthFrame(const k4a::image& depthImg, const k4a::image& colorImg);
 
 	private:
 		int index;
@@ -93,10 +104,12 @@ namespace ofxAzureKinect
 		std::string serialNumber;
 
 		k4a_device_configuration_t config;
-		k4a_calibration_t calibration;
-		k4a_transformation_t transformation;
-		k4a_device_t device;
-		k4a_capture_t capture;
+		k4a::calibration calibration;
+		k4a::transformation transformation;
+		k4a::device device;
+		k4a::capture capture;
+
+		tjhandle jpegDecompressor;
 
 		ofShortPixels depthPix;
 		ofTexture depthTex;
@@ -107,9 +120,16 @@ namespace ofxAzureKinect
 		ofShortPixels irPix;
 		ofTexture irTex;
 
-		k4a_image_t depthToWorldImg;
+		k4a::image depthToWorldImg;
 		ofFloatPixels depthToWorldPix;
 		ofTexture depthToWorldTex;
+
+		k4a::image colorToWorldImg;
+		ofFloatPixels colorToWorldPix;
+		ofTexture colorToWorldTex;
+
+		ofShortPixels depthInColorPix;
+		ofTexture depthInColorTex;
 
 		ofPixels colorInDepthPix;
 		ofTexture colorInDepthTex;
