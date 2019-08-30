@@ -63,7 +63,9 @@ common:
 vs:
 
 	ADDON_INCLUDES += $(AZUREKINECT_SDK)include
+	ADDON_INCLUDES += $(AZUREKINECT_BODYTRACKING_SDK)include
 	ADDON_LIBS += $(AZUREKINECT_SDK)windows-desktop\amd64\release\lib\k4a.lib
+	ADDON_LIBS += $(AZUREKINECT_BODYTRACKING_SDK)windows-desktop\amd64\release\lib\k4abt.lib
 	
 linux64:
 	
