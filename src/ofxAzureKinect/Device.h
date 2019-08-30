@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
 #include <k4a/k4a.hpp>
-#include "turbojpeg.h"
+#include <k4abt.h>
+#include <turbojpeg.h>
 
 #include "ofBufferObject.h"
 #include "ofEvents.h"
@@ -29,6 +29,7 @@ namespace ofxAzureKinect
 		
 		bool updateColor;
 		bool updateIr;
+		bool updateBodies;
 		bool updateWorld;
 		bool updateVbo;
 
@@ -77,6 +78,12 @@ namespace ofxAzureKinect
 		const ofPixels& getColorInDepthPix() const;
 		const ofTexture& getColorInDepthTex() const;
 
+		const ofPixels& getBodyIndexPix() const;
+		const ofTexture& getBodyIndexTex() const;
+
+		size_t getNumBodies() const;
+		const std::map<uint32_t, k4abt_skeleton_t>& getBodySkeletons() const;
+
 		const ofVbo& getPointCloudVbo() const;
 
 	private:
@@ -98,6 +105,7 @@ namespace ofxAzureKinect
 
 		bool bUpdateColor;
 		bool bUpdateIr;
+		bool bUpdateBodies;
 		bool bUpdateWorld;
 		bool bUpdateVbo;
 
@@ -108,6 +116,8 @@ namespace ofxAzureKinect
 		k4a::transformation transformation;
 		k4a::device device;
 		k4a::capture capture;
+
+		k4abt_tracker_t bodyTracker;
 
 		tjhandle jpegDecompressor;
 
@@ -133,6 +143,10 @@ namespace ofxAzureKinect
 
 		ofPixels colorInDepthPix;
 		ofTexture colorInDepthTex;
+
+		ofPixels bodyIndexPix;
+		ofTexture bodyIndexTex;
+		std::map<uint32_t, k4abt_skeleton_t> bodySkeletons;
 
 		std::vector<glm::vec3> positionCache;
 		std::vector<glm::vec2> uvCache;
