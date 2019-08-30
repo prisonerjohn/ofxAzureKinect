@@ -593,7 +593,7 @@ public:
         return capture(handle);
     }
 
-private:
+public:
     k4a_capture_t m_handle;
 };
 
