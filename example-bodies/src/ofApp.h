@@ -30,4 +30,6 @@ private:
 	ofxAzureKinect::Device kinectDevice;
 
 	ofEasyCam camera;
+
+	ofVboMesh skeletonMesh;
 };
