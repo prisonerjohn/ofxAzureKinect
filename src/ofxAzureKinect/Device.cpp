@@ -14,6 +14,7 @@ namespace ofxAzureKinect
 		, cameraFps(K4A_FRAMES_PER_SECOND_30)
 		, updateColor(true)
 		, updateIr(true)
+		, updateBodies(false)
 		, updateWorld(true)
 		, updateVbo(true)
 		, synchronized(true)
@@ -30,8 +31,10 @@ namespace ofxAzureKinect
 		, bStreaming(false)
 		, bUpdateColor(false)
 		, bUpdateIr(false)
+		, bUpdateBodies(false)
 		, bUpdateWorld(false)
 		, bUpdateVbo(false)
+		, bodyTracker(nullptr)
 		, jpegDecompressor(tjInitDecompress())
 	{}
 
@@ -86,6 +89,7 @@ namespace ofxAzureKinect
 
 		this->bUpdateColor = settings.updateColor;
 		this->bUpdateIr = settings.updateIr;
+		this->bUpdateBodies = settings.updateBodies;
 		this->bUpdateWorld = settings.updateWorld;
 		this->bUpdateVbo = settings.updateWorld && settings.updateVbo;
 
@@ -134,6 +138,12 @@ namespace ofxAzureKinect
 			this->transformation = k4a::transformation(this->calibration);
 		}
 
+		if (this->bUpdateBodies)
+		{
+			// Create tracker.
+			k4abt_tracker_create(&this->calibration, &this->bodyTracker);
+		}
+
 		if (this->bUpdateWorld)
 		{
 			// Load depth to world LUT.
@@ -173,6 +183,13 @@ namespace ofxAzureKinect
 		this->depthToWorldImg.reset();
 		this->transformation.destroy();
 
+		if (this->bUpdateBodies)
+		{
+			k4abt_tracker_shutdown(this->bodyTracker);
+			k4abt_tracker_destroy(this->bodyTracker);
+			this->bodyTracker = nullptr;
+		}
+
 		this->device.stop_cameras();
 
 		this->bStreaming = false;
@@ -182,7 +199,7 @@ namespace ofxAzureKinect
 
 	void Device::updateCameras(ofEventArgs& args)
 	{
-		// Get a depth frame.
+		// Get a capture.
 		try
 		{ 
 			if (!this->device.get_capture(&this->capture, std::chrono::milliseconds(TIMEOUT_IN_MS)))
@@ -298,6 +315,55 @@ namespace ofxAzureKinect
 			else
 			{
 				ofLogWarning(__FUNCTION__) << "No Ir16 capture found!";
+			}
+		}
+
+		if (this->bUpdateBodies)
+		{
+			k4a_wait_result_t enqueueResult = k4abt_tracker_enqueue_capture(this->bodyTracker, this->capture.handle(), K4A_WAIT_INFINITE);
+			if (enqueueResult == K4A_WAIT_RESULT_FAILED)
+			{
+				ofLogError(__FUNCTION__) << "Failed adding capture to tracker process queue!";
+			}
+			else
+			{
+				k4abt_frame_t bodyFrame = nullptr;
+				k4a_wait_result_t popResult = k4abt_tracker_pop_result(this->bodyTracker, &bodyFrame, K4A_WAIT_INFINITE);
+				if (popResult == K4A_WAIT_RESULT_SUCCEEDED)
+				{
+					// Probe for a body index map image.
+					k4a::image bodyIndexImg = k4abt_frame_get_body_index_map(bodyFrame);
+					const auto bodyIndexSize = glm::ivec2(bodyIndexImg.get_width_pixels(), bodyIndexImg.get_height_pixels());
+					if (!this->bodyIndexPix.isAllocated())
+					{
+						this->bodyIndexPix.allocate(bodyIndexSize.x, bodyIndexSize.y, 1);
+						this->bodyIndexPix.allocate(bodyIndexSize.x, bodyIndexSize.y, GL_R);
+						this->bodyIndexTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
+						this->bodyIndexTex.setRGToRGBASwizzles(true);
+					}
+
+					const auto bodyIndexData = reinterpret_cast<uint8_t*>(bodyIndexImg.get_buffer());
+					this->bodyIndexPix.setFromPixels(bodyIndexData, bodyIndexSize.x, bodyIndexSize.y, 1);
+					this->bodyIndexTex.loadData(this->bodyIndexPix);
+
+					ofLogVerbose(__FUNCTION__) << "Capture BodyIndex " << bodyIndexSize.x << "x" << bodyIndexSize.y << " stride: " << bodyIndexImg.get_stride_bytes() << ".";
+					bodyIndexImg.reset();
+
+					size_t numBodies = k4abt_frame_get_num_bodies(bodyFrame);
+					ofLogVerbose(__FUNCTION__) << numBodies << " bodies found!";
+
+					this->bodySkeletons.clear();
+					for (size_t i = 0; i < numBodies; i++)
+					{
+						k4abt_skeleton_t skeleton;
+						k4abt_frame_get_body_skeleton(bodyFrame, i, &skeleton);
+						uint32_t id = k4abt_frame_get_body_id(bodyFrame, i);
+						this->bodySkeletons[id] = skeleton;
+					}
+
+					// Release body frame once we're finished.
+					k4abt_frame_release(bodyFrame);
+				}
 			}
 		}
 
@@ -637,6 +703,26 @@ namespace ofxAzureKinect
 	const ofTexture& Device::getColorInDepthTex() const
 	{
 		return this->colorInDepthTex;
+	}
+
+	const ofPixels& Device::getBodyIndexPix() const
+	{
+		return this->bodyIndexPix;
+	}
+
+	const ofTexture& Device::getBodyIndexTex() const
+	{
+		return this->bodyIndexTex;
+	}
+
+	size_t Device::getNumBodies() const
+	{
+		return this->bodySkeletons.size();
+	}
+
+	const std::map<uint32_t, k4abt_skeleton_t>& Device::getBodySkeletons() const
+	{
+		return this->bodySkeletons;
 	}
 
 	const ofVbo& Device::getPointCloudVbo() const
