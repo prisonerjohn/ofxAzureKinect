@@ -550,7 +550,7 @@ namespace ofxAzureKinect
 		k4a::image transformedDepthImg;
 		try
 		{
-			transformedDepthImg = k4a::image::create(K4A_IMAGE_FORMAT_CUSTOM,
+			transformedDepthImg = k4a::image::create(K4A_IMAGE_FORMAT_DEPTH16,
 				colorDims.x, colorDims.y,
 				colorDims.x * static_cast<int>(sizeof(uint16_t)));
 
