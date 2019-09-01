@@ -320,7 +320,7 @@ namespace ofxAzureKinect
 
 		if (this->bUpdateBodies)
 		{
-			k4a_wait_result_t enqueueResult = k4abt_tracker_enqueue_capture(this->bodyTracker, this->capture.m_handle, K4A_WAIT_INFINITE);
+			k4a_wait_result_t enqueueResult = k4abt_tracker_enqueue_capture(this->bodyTracker, this->capture.handle(), K4A_WAIT_INFINITE);
 			if (enqueueResult == K4A_WAIT_RESULT_FAILED)
 			{
 				ofLogError(__FUNCTION__) << "Failed adding capture to tracker process queue!";
@@ -346,7 +346,7 @@ namespace ofxAzureKinect
 					this->bodyIndexPix.setFromPixels(bodyIndexData, bodyIndexSize.x, bodyIndexSize.y, 1);
 					this->bodyIndexTex.loadData(this->bodyIndexPix);
 
-					ofLogVerbose(__FUNCTION__) << "Capture BodyIndex " << bodyIndexSize.x << "x" << bodyIndexSize.y << " stride: " << irImg.get_stride_bytes() << ".";
+					ofLogVerbose(__FUNCTION__) << "Capture BodyIndex " << bodyIndexSize.x << "x" << bodyIndexSize.y << " stride: " << bodyIndexImg.get_stride_bytes() << ".";
 					bodyIndexImg.reset();
 
 					size_t numBodies = k4abt_frame_get_num_bodies(bodyFrame);
