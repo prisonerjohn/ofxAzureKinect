@@ -80,7 +80,8 @@ namespace ofxAzureKinect
 		const ofTexture& getBodyIndexTex() const;
 
 		size_t getNumBodies() const;
-		const std::map<uint32_t, k4abt_skeleton_t>& getBodySkeletons() const;
+		const std::vector<k4abt_skeleton_t>& getBodySkeletons() const;
+		const std::vector<uint32_t>& getBodyIDs() const;
 
 		const ofVbo& getPointCloudVbo() const;
 
@@ -145,7 +146,8 @@ namespace ofxAzureKinect
 
 		ofPixels bodyIndexPix;
 		ofTexture bodyIndexTex;
-		std::map<uint32_t, k4abt_skeleton_t> bodySkeletons;
+		std::vector<k4abt_skeleton_t> bodySkeletons;
+		std::vector<uint32_t> bodyIDs;
 
 		std::vector<glm::vec3> positionCache;
 		std::vector<glm::vec2> uvCache;

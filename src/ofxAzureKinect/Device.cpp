@@ -355,13 +355,15 @@ namespace ofxAzureKinect
 					size_t numBodies = k4abt_frame_get_num_bodies(bodyFrame);
 					ofLogVerbose(__FUNCTION__) << numBodies << " bodies found!";
 
-					this->bodySkeletons.clear();
+					this->bodySkeletons.resize(numBodies);
+					this->bodyIDs.resize(numBodies);
 					for (size_t i = 0; i < numBodies; i++)
 					{
 						k4abt_skeleton_t skeleton;
 						k4abt_frame_get_body_skeleton(bodyFrame, i, &skeleton);
+						this->bodySkeletons[i] = skeleton;
 						uint32_t id = k4abt_frame_get_body_id(bodyFrame, i);
-						this->bodySkeletons[id] = skeleton;
+						this->bodyIDs[i] = id;
 					}
 
 					// Release body frame once we're finished.
@@ -723,9 +725,14 @@ namespace ofxAzureKinect
 		return this->bodySkeletons.size();
 	}
 
-	const std::map<uint32_t, k4abt_skeleton_t>& Device::getBodySkeletons() const
+	const std::vector<k4abt_skeleton_t>& Device::getBodySkeletons() const
 	{
 		return this->bodySkeletons;
+	}
+
+	const std::vector<uint32_t>& Device::getBodyIDs() const
+	{
+		return this->bodyIDs;
 	}
 
 	const ofVbo& Device::getPointCloudVbo() const

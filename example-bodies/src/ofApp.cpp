@@ -48,11 +48,10 @@ void ofApp::draw()
 		ofNoFill();
 		this->camera.begin();
 		{
-			auto& bodySkeletons = this->kinectDevice.getBodySkeletons();
-			for (auto& pair : bodySkeletons)
 			{
-				auto skeleton = pair.second;
 
+			auto& bodySkeletons = this->kinectDevice.getBodySkeletons();
+			for (auto& skeleton : bodySkeletons)
 				// Draw joints.
 				for (int i = 0; i < K4ABT_JOINT_COUNT; ++i)
 				{
