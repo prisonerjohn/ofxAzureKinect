@@ -40,8 +40,8 @@ void main()
         bodyIndex != BODY_INDEX_MAP_BACKGROUND && 
         ray.x != 0 && ray.y != 0)
     {
-        int bodyID = uBodyIDs[bodyIndex % 6];
-        vColor = COLORS[bodyID];
+        int bodyID = uBodyIDs[bodyIndex];
+        vColor = COLORS[bodyID % 6];
     }
     else
     {
