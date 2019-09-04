@@ -31,5 +31,8 @@ private:
 
 	ofEasyCam camera;
 
+	ofVbo pointsVbo;
+	ofShader shader;
+
 	ofVboMesh skeletonMesh;
 };
