@@ -23,6 +23,7 @@ namespace ofxAzureKinect
 		ColorResolution colorResolution;
 		ImageFormat colorFormat;
 		FramesPerSecond cameraFps;
+		SensorOrientation sensorOrientation;
 		
 		bool updateColor;
 		bool updateIr;
@@ -114,6 +115,7 @@ namespace ofxAzureKinect
 		k4a::device device;
 		k4a::capture capture;
 
+		k4abt_tracker_configuration_t trackerConfig;
 		k4abt_tracker_t bodyTracker;
 
 		tjhandle jpegDecompressor;

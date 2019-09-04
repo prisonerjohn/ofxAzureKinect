@@ -12,6 +12,7 @@ namespace ofxAzureKinect
 		, colorResolution(K4A_COLOR_RESOLUTION_2160P)
 		, colorFormat(K4A_IMAGE_FORMAT_COLOR_BGRA32)
 		, cameraFps(K4A_FRAMES_PER_SECOND_30)
+		, sensorOrientation(K4ABT_SENSOR_ORIENTATION_DEFAULT)
 		, updateColor(true)
 		, updateIr(true)
 		, updateBodies(false)
@@ -58,6 +59,8 @@ namespace ofxAzureKinect
 		this->config.color_resolution = settings.colorResolution;
 		this->config.camera_fps = settings.cameraFps;
 		this->config.synchronized_images_only = settings.synchronized;
+
+		this->trackerConfig.sensor_orientation = settings.sensorOrientation;
 
 		if (this->bOpen)
 		{
@@ -141,7 +144,7 @@ namespace ofxAzureKinect
 		if (this->bUpdateBodies)
 		{
 			// Create tracker.
-			k4abt_tracker_create(&this->calibration, &this->bodyTracker);
+			k4abt_tracker_create(&this->calibration, this->trackerConfig, &this->bodyTracker);
 		}
 
 		if (this->bUpdateWorld)
