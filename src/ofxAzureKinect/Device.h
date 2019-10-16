@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
 #include <k4a/k4a.hpp>
-#include "turbojpeg.h"
+#include <k4abt.h>
+#include <turbojpeg.h>
 
 #include "ofBufferObject.h"
 #include "ofEvents.h"
@@ -11,13 +11,10 @@
 #include "ofVboMesh.h"
 #include "ofVectorMath.h"
 
+#include "Types.h"
+
 namespace ofxAzureKinect
 {
-	typedef k4a_depth_mode_t DepthMode;
-	typedef k4a_color_resolution_t ColorResolution;
-	typedef k4a_image_format_t ImageFormat;
-	typedef k4a_fps_t FramesPerSecond;
-
 	struct DeviceSettings
 	{
 		int deviceIndex;
@@ -26,9 +23,11 @@ namespace ofxAzureKinect
 		ColorResolution colorResolution;
 		ImageFormat colorFormat;
 		FramesPerSecond cameraFps;
+		SensorOrientation sensorOrientation;
 		
 		bool updateColor;
 		bool updateIr;
+		bool updateBodies;
 		bool updateWorld;
 		bool updateVbo;
 
@@ -77,6 +76,13 @@ namespace ofxAzureKinect
 		const ofPixels& getColorInDepthPix() const;
 		const ofTexture& getColorInDepthTex() const;
 
+		const ofPixels& getBodyIndexPix() const;
+		const ofTexture& getBodyIndexTex() const;
+
+		size_t getNumBodies() const;
+		const std::vector<k4abt_skeleton_t>& getBodySkeletons() const;
+		const std::vector<uint32_t>& getBodyIDs() const;
+
 		const ofVbo& getPointCloudVbo() const;
 
 	private:
@@ -98,6 +104,7 @@ namespace ofxAzureKinect
 
 		bool bUpdateColor;
 		bool bUpdateIr;
+		bool bUpdateBodies;
 		bool bUpdateWorld;
 		bool bUpdateVbo;
 
@@ -108,6 +115,9 @@ namespace ofxAzureKinect
 		k4a::transformation transformation;
 		k4a::device device;
 		k4a::capture capture;
+
+		k4abt_tracker_configuration_t trackerConfig;
+		k4abt_tracker_t bodyTracker;
 
 		tjhandle jpegDecompressor;
 
@@ -133,6 +143,11 @@ namespace ofxAzureKinect
 
 		ofPixels colorInDepthPix;
 		ofTexture colorInDepthTex;
+
+		ofPixels bodyIndexPix;
+		ofTexture bodyIndexTex;
+		std::vector<k4abt_skeleton_t> bodySkeletons;
+		std::vector<uint32_t> bodyIDs;
 
 		std::vector<glm::vec3> positionCache;
 		std::vector<glm::vec2> uvCache;
