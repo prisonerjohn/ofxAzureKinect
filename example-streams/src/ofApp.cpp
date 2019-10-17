@@ -40,7 +40,7 @@ void ofApp::draw()
 		this->kinectDevice.getIrTex().draw(1280, 360, 360, 360);
 	}
 
-	ofDrawBitmapString(ofToString(ofGetFrameRate(), 2) + " FPS", 10, 20);
+	ofDrawBitmapStringHighlight(ofToString(ofGetFrameRate(), 2) + " FPS", 10, 20);
 }
 
 //--------------------------------------------------------------
