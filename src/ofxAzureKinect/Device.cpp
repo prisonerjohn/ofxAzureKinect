@@ -345,7 +345,6 @@ namespace ofxAzureKinect
 					if (!this->bodyIndexPix.isAllocated())
 					{
 						this->bodyIndexPix.allocate(bodyIndexSize.x, bodyIndexSize.y, 1);
-						this->bodyIndexPix.allocate(bodyIndexSize.x, bodyIndexSize.y, GL_R);
 					}
 
 					const auto bodyIndexData = reinterpret_cast<uint8_t*>(bodyIndexImg.get_buffer());
@@ -412,7 +411,7 @@ namespace ofxAzureKinect
 			// Update the depth texture.
 			if (!this->depthTex.isAllocated())
 			{
-				this->depthTex.allocate(this->depthPix.getWidth(), this->depthPix.getHeight(), GL_R16);
+				this->depthTex.allocate(this->depthPix);
 				this->depthTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 			}
 
@@ -424,7 +423,7 @@ namespace ofxAzureKinect
 				// Update the color texture.
 				if (!this->colorTex.isAllocated())
 				{
-					this->colorTex.allocate(this->colorPix.getWidth(), this->colorPix.getHeight(), GL_RGBA8, ofGetUsingArbTex(), GL_BGRA, GL_UNSIGNED_BYTE);
+					this->colorTex.allocate(this->colorPix);
 					this->colorTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 
 					if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
@@ -448,7 +447,7 @@ namespace ofxAzureKinect
 				// Update the IR16 image.
 				if (!this->irTex.isAllocated())
 				{
-					this->irTex.allocate(this->irPix.getWidth(), this->irPix.getHeight(), GL_R16);
+					this->irTex.allocate(this->irPix);
 					this->irTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 					this->irTex.setRGToRGBASwizzles(true);
 				}
@@ -462,9 +461,8 @@ namespace ofxAzureKinect
 			{
 				if (!this->bodyIndexTex.isAllocated())
 				{
-					this->bodyIndexTex.allocate(this->bodyIndexPix.getWidth(), this->bodyIndexPix.getHeight(), GL_R);
+					this->bodyIndexTex.allocate(this->bodyIndexPix);
 					this->bodyIndexTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
-					this->bodyIndexTex.setRGToRGBASwizzles(true);
 				}
 
 				this->bodyIndexTex.loadData(this->bodyIndexPix);
@@ -480,7 +478,7 @@ namespace ofxAzureKinect
 			{
 				if (this->depthInColorPix.isAllocated() && !this->depthInColorTex.isAllocated())
 				{
-					this->depthInColorTex.allocate(this->depthInColorPix.getWidth(), this->depthInColorPix.getHeight(), GL_R16);
+					this->depthInColorTex.allocate(this->depthInColorPix);
 					this->depthInColorTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 				}
 
@@ -488,7 +486,7 @@ namespace ofxAzureKinect
 			
 				if (this->colorInDepthPix.isAllocated() && !this->colorInDepthTex.isAllocated())
 				{
-					this->colorInDepthTex.allocate(this->colorInDepthPix.getWidth(), this->colorInDepthPix.getHeight(), GL_RGBA8, ofGetUsingArbTex(), GL_BGRA, GL_UNSIGNED_BYTE);
+					this->colorInDepthTex.allocate(this->colorInDepthPix);
 					this->colorInDepthTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 					this->colorInDepthTex.bind();
 					{
