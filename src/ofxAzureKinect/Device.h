@@ -24,17 +24,26 @@ namespace ofxAzureKinect
 		ColorResolution colorResolution;
 		ImageFormat colorFormat;
 		FramesPerSecond cameraFps;
-		SensorOrientation sensorOrientation;
 		
 		bool updateColor;
 		bool updateIr;
-		bool updateBodies;
 		bool updateWorld;
 		bool updateVbo;
 
 		bool synchronized;
 
 		DeviceSettings(int idx = 0);
+	};
+
+	struct BodyTrackingSettings
+	{
+		SensorOrientation sensorOrientation;
+		ProcessingMode processingMode;
+		int32_t gpuDeviceID;
+
+		bool updateBodies;
+
+		BodyTrackingSettings();
 	};
 
 	class Device 
@@ -49,6 +58,7 @@ namespace ofxAzureKinect
 
 		bool open(int idx = 0);
 		bool open(DeviceSettings settings);
+		bool open(DeviceSettings settings, BodyTrackingSettings bodyTrackingSettings);
 		bool close();
 
 		bool startCameras();

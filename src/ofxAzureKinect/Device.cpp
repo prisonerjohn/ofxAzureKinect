@@ -12,13 +12,18 @@ namespace ofxAzureKinect
 		, colorResolution(K4A_COLOR_RESOLUTION_2160P)
 		, colorFormat(K4A_IMAGE_FORMAT_COLOR_BGRA32)
 		, cameraFps(K4A_FRAMES_PER_SECOND_30)
-		, sensorOrientation(K4ABT_SENSOR_ORIENTATION_DEFAULT)
 		, updateColor(true)
 		, updateIr(true)
-		, updateBodies(false)
 		, updateWorld(true)
 		, updateVbo(true)
 		, synchronized(true)
+	{}
+
+	BodyTrackingSettings::BodyTrackingSettings()
+		: sensorOrientation(K4ABT_SENSOR_ORIENTATION_DEFAULT)
+		, processingMode(K4ABT_TRACKER_PROCESSING_MODE_GPU)
+		, gpuDeviceID(0)
+		, updateBodies(false)
 	{}
 
 	int Device::getInstalledCount()
@@ -41,26 +46,32 @@ namespace ofxAzureKinect
 
 	Device::~Device()
 	{
-		close();
+		this->close();
 
 		tjDestroy(jpegDecompressor);
 	}
 
 	bool Device::open(int idx)
 	{
-		return open(DeviceSettings(idx));
+		return this->open(DeviceSettings(idx), BodyTrackingSettings());
 	}
 
-	bool Device::open(DeviceSettings settings)
+	bool Device::open(DeviceSettings deviceSettings)
+	{
+		return this->open(deviceSettings, BodyTrackingSettings());
+	}
+
+	bool Device::open(DeviceSettings deviceSettings, BodyTrackingSettings bodyTrackingSettings)
 	{
 		this->config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-		this->config.depth_mode = settings.depthMode;
-		this->config.color_format = settings.colorFormat;
-		this->config.color_resolution = settings.colorResolution;
-		this->config.camera_fps = settings.cameraFps;
-		this->config.synchronized_images_only = settings.synchronized;
+		this->config.depth_mode = deviceSettings.depthMode;
+		this->config.color_format = deviceSettings.colorFormat;
+		this->config.color_resolution = deviceSettings.colorResolution;
+		this->config.camera_fps = deviceSettings.cameraFps;
+		this->config.synchronized_images_only = deviceSettings.synchronized;
 
-		this->trackerConfig.sensor_orientation = settings.sensorOrientation;
+		this->trackerConfig.sensor_orientation = bodyTrackingSettings.sensorOrientation;
+		this->trackerConfig.gpu_device_id = bodyTrackingSettings.gpuDeviceID;
 
 		if (this->bOpen)
 		{
@@ -71,7 +82,7 @@ namespace ofxAzureKinect
 		try
 		{
 			// Open connection to the device.
-			this->device = k4a::device::open(static_cast<uint32_t>(settings.deviceIndex));
+			this->device = k4a::device::open(static_cast<uint32_t>(deviceSettings.deviceIndex));
 
 			// Get the device serial number.
 			this->serialNumber = this->device.get_serialnum();
@@ -87,14 +98,15 @@ namespace ofxAzureKinect
 			return false;
 		}
 
-		this->index = settings.deviceIndex;
+		this->index = deviceSettings.deviceIndex;
 		this->bOpen = true;
 
-		this->bUpdateColor = settings.updateColor;
-		this->bUpdateIr = settings.updateIr;
-		this->bUpdateBodies = settings.updateBodies;
-		this->bUpdateWorld = settings.updateWorld;
-		this->bUpdateVbo = settings.updateWorld && settings.updateVbo;
+		this->bUpdateColor = deviceSettings.updateColor;
+		this->bUpdateIr = deviceSettings.updateIr;
+		this->bUpdateWorld = deviceSettings.updateWorld;
+		this->bUpdateVbo = deviceSettings.updateWorld && deviceSettings.updateVbo;
+
+		this->bUpdateBodies = bodyTrackingSettings.updateBodies;
 
 		ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " with serial number " << this->serialNumber << ".";
 
