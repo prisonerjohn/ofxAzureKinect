@@ -99,7 +99,7 @@ void ofApp::draw()
 		this->cam.end();
 	}
 
-	ofDrawBitmapString(ofToString(ofGetFrameRate(), 2) + " FPS", 10, 20);
+	ofDrawBitmapStringHighlight(ofToString(ofGetFrameRate(), 2) + " FPS", 10, 20);
 }
 
 //--------------------------------------------------------------

@@ -8,6 +8,7 @@
 #include "ofEvents.h"
 #include "ofPixels.h"
 #include "ofTexture.h"
+#include "ofThread.h"
 #include "ofVboMesh.h"
 #include "ofVectorMath.h"
 
@@ -36,7 +37,8 @@ namespace ofxAzureKinect
 		DeviceSettings(int idx = 0);
 	};
 
-	class Device
+	class Device 
+		: ofThread
 	{
 	public:
 		static int getInstalledCount();
@@ -85,14 +87,20 @@ namespace ofxAzureKinect
 
 		const ofVbo& getPointCloudVbo() const;
 
+	protected:
+		void threadedFunction() override;
+
 	private:
-		void updateCameras(ofEventArgs& args);
+		void updatePixels();
+		void updateTextures();
+
+		void update(ofEventArgs& args);
 
 		bool setupDepthToWorldTable();
 		bool setupColorToWorldTable();
 		bool setupImageToWorldTable(k4a_calibration_type_t type, k4a::image& img);
 
-		bool updateWorldVbo(k4a::image& frameImg, k4a::image& tableImg);
+		bool updatePointsCache(k4a::image& frameImg, k4a::image& tableImg);
 
 		bool updateDepthInColorFrame(const k4a::image& depthImg, const k4a::image& colorImg);
 		bool updateColorInDepthFrame(const k4a::image& depthImg, const k4a::image& colorImg);
@@ -107,6 +115,10 @@ namespace ofxAzureKinect
 		bool bUpdateBodies;
 		bool bUpdateWorld;
 		bool bUpdateVbo;
+
+		std::condition_variable condition;
+		uint64_t pixFrameNum;
+		uint64_t texFrameNum;
 
 		std::string serialNumber;
 
@@ -151,6 +163,7 @@ namespace ofxAzureKinect
 
 		std::vector<glm::vec3> positionCache;
 		std::vector<glm::vec2> uvCache;
+		size_t numPoints;
 		ofVbo pointCloudVbo;
 	};
 }

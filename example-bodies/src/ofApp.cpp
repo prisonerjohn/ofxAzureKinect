@@ -60,7 +60,7 @@ void ofApp::draw()
 	}
 
 	this->camera.begin();
-	{		
+	{
 		ofPushMatrix();
 		{
 			ofRotateXDeg(180);
