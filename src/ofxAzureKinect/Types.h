@@ -27,4 +27,5 @@ namespace ofxAzureKinect
 	typedef k4a_fps_t FramesPerSecond;
 
 	typedef k4abt_sensor_orientation_t SensorOrientation;
+	typedef k4abt_tracker_processing_mode_t ProcessingMode;
 }
