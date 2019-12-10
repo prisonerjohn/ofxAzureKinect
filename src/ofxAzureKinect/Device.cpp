@@ -107,6 +107,13 @@ namespace ofxAzureKinect
 		this->bUpdateVbo = deviceSettings.updateWorld && deviceSettings.updateVbo;
 
 		this->bUpdateBodies = bodyTrackingSettings.updateBodies;
+		if (this->bUpdateBodies)
+		{
+			this->eventListeners.push(this->jointSmoothing.newListener([this](float &)
+			{
+				k4abt_tracker_set_temporal_smoothing(this->bodyTracker, this->jointSmoothing);
+			}));
+		}
 
 		ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " with serial number " << this->serialNumber << ".";
 
@@ -120,6 +127,8 @@ namespace ofxAzureKinect
 		this->stopCameras();
 
 		this->device.close();
+
+		this->eventListeners.unsubscribeAll();
 
 		this->index = -1;
 		this->bOpen = false;

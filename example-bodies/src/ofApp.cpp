@@ -209,7 +209,10 @@ void ofApp::draw()
 	}
 	this->camera.end();
 
-	ofDrawBitmapStringHighlight(ofToString(ofGetFrameRate(), 2) + " FPS", 10, 20);
+	std::ostringstream oss;
+	oss << ofToString(ofGetFrameRate(), 2) + " FPS" << std::endl;
+	oss << "Joint Smoothing: " << this->kinectDevice.jointSmoothing;
+	ofDrawBitmapStringHighlight(oss.str(), 10, 20);
 }
 
 //--------------------------------------------------------------
@@ -228,8 +231,12 @@ void ofApp::mouseMoved(int x, int y ){
 }
 
 //--------------------------------------------------------------
-void ofApp::mouseDragged(int x, int y, int button){
-
+void ofApp::mouseDragged(int x, int y, int button)
+{
+	if (button == 1)
+	{
+		this->kinectDevice.jointSmoothing = ofMap(x, 0, ofGetWidth(), 0.0f, 1.0f, true);
+	}
 }
 
 //--------------------------------------------------------------

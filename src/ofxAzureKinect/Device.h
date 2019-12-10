@@ -6,6 +6,7 @@
 
 #include "ofBufferObject.h"
 #include "ofEvents.h"
+#include "ofParameter.h"
 #include "ofPixels.h"
 #include "ofTexture.h"
 #include "ofThread.h"
@@ -97,6 +98,9 @@ namespace ofxAzureKinect
 
 		const ofVbo& getPointCloudVbo() const;
 
+	public:
+		ofParameter<float> jointSmoothing{ "Joint Smoothing", 0.0f, 0.0f, 1.0f };
+
 	protected:
 		void threadedFunction() override;
 
@@ -175,5 +179,7 @@ namespace ofxAzureKinect
 		std::vector<glm::vec2> uvCache;
 		size_t numPoints;
 		ofVbo pointCloudVbo;
+
+		ofEventListeners eventListeners;
 	};
 }
