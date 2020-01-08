@@ -72,7 +72,6 @@ linux64:
 	ADDON_INCLUDES += libs/turbojpeg/include
 	ADDON_LIBS += /usr/lib/x86_64-linux-gnu/libk4a.so
 	ADDON_LIBS += /usr/lib/libk4abt.so
-	ADDON_LIBS += /opt/libjpeg-turbo/lib64/libjpeg.so
 	ADDON_LIBS += /opt/libjpeg-turbo/lib64/libturbojpeg.so
 
 linux:
