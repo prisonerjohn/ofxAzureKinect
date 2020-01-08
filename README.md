@@ -9,6 +9,8 @@ ofxAddon that allows you to use [Azure Kinect](https://azure.microsoft.com/en-us
 
 ## Installation
 
+### Windows
+
 * Install the [Azure Kinect Sensor SDK](https://docs.microsoft.com/en-us/azure/Kinect-dk/sensor-sdk-download).
 * Install the [Azure Kinect Body Tracking SDK](https://docs.microsoft.com/en-us/azure/Kinect-dk/body-sdk-download).
 * Add an environment variable for `AZUREKINECT_SDK` and set it to the Sensor SDK installation path (no trailing slash). The default is `C:\Program Files\Azure Kinect SDK v1.3.0`.
@@ -26,6 +28,10 @@ ofxAddon that allows you to use [Azure Kinect](https://azure.microsoft.com/en-us
 * Clone this repository in your openFrameworks `addons` folder.
 * You can then use the OF Project Generator to generate projects with the appropriate headers and libraries included. ✌️
 * Note that if you want to use body tracking, you will need to copy the cuDNN model file `dnn_model_2_0.onnx` from the Body SDK `tools` folder into your project's `bin` folder!
+
+### Linux
+Install libjpeg-turbo binary from https://sourceforge.net/projects/libjpeg-turbo/
+
 
 ## Compatibility
 
