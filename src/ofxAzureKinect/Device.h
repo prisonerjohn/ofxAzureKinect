@@ -33,6 +33,9 @@ namespace ofxAzureKinect
 
 		bool synchronized;
 
+		bool timeoutSilent;
+		int captureTimeoutMs;
+
 		DeviceSettings(int idx = 0);
 	};
 
@@ -107,6 +110,9 @@ namespace ofxAzureKinect
 		bool bUpdateBodies;
 		bool bUpdateWorld;
 		bool bUpdateVbo;
+		
+		int captureTimeoutMs = 1000;
+		bool captureTimeoutSilent = false;
 
 		std::string serialNumber;
 
