@@ -16,6 +16,10 @@ void ofApp::setup()
 	{
 		this->kinectDevice.startCameras();
 	}
+	glPointSize(2);
+	cam.rotateDeg(160, glm::vec3(0, 1, 0));
+	cam.rotateDeg(180, glm::vec3(0, 0, 1));
+
 }
 
 //--------------------------------------------------------------
@@ -34,7 +38,7 @@ void ofApp::update()
 void ofApp::draw()
 {
 	ofBackground(128);
-
+	ofEnableDepthTest();
 	if (this->kinectDevice.isStreaming())
 	{
 		this->cam.begin();
@@ -55,7 +59,7 @@ void ofApp::draw()
 		}
 		this->cam.end();
 	}
-
+	ofDisableDepthTest();
 	ofDrawBitmapString(ofToString(ofGetFrameRate(), 2) + " FPS", 10, 20);
 }
 

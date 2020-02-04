@@ -376,7 +376,7 @@ namespace ofxAzureKinect
 		{
 			if (this->bUpdateColor)
 			{
-				this->updateWorldVbo(colorImg, this->colorToWorldImg);
+				this->updateWorldVbo(depthImg, this->colorToWorldImg);
 			}
 			else
 			{
@@ -427,7 +427,7 @@ namespace ofxAzureKinect
 
 	bool Device::setupColorToWorldTable()
 	{
-		if (this->setupImageToWorldTable(K4A_CALIBRATION_TYPE_COLOR, this->colorToWorldImg))
+		if (this->setupImageToWorldTable(K4A_CALIBRATION_TYPE_DEPTH, this->colorToWorldImg))
 		{
 			const int width = this->colorToWorldImg.get_width_pixels();
 			const int height = this->colorToWorldImg.get_height_pixels();
@@ -528,7 +528,7 @@ namespace ofxAzureKinect
 				if (frameData[idx] != 0 &&
 					tableData[idx].xy.x != 0 && tableData[idx].xy.y != 0)
 				{
-					float depthVal = static_cast<float>(frameData[idx]);
+					uint16_t depthVal = (frameData[idx]);
 					this->positionCache[numPoints] = glm::vec3(
 						tableData[idx].xy.x * depthVal,
 						tableData[idx].xy.y * depthVal,

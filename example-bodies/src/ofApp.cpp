@@ -121,9 +121,9 @@ void ofApp::draw()
 
 				// Spine.
 				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_PELVIS].position);
-				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_SPINE_NAVAL].position);
+				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_SPINE_NAVEL].position);
 
-				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_SPINE_NAVAL].position);
+				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_SPINE_NAVEL].position);
 				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position);
 
 				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position);
