@@ -33,6 +33,9 @@ namespace ofxAzureKinect
 
 		bool synchronized;
 
+		bool timeoutSilent;
+		int captureTimeoutMs;
+
 		DeviceSettings(int idx = 0);
 	};
 
@@ -83,6 +86,8 @@ namespace ofxAzureKinect
 		const std::vector<k4abt_skeleton_t>& getBodySkeletons() const;
 		const std::vector<uint32_t>& getBodyIDs() const;
 
+		const std::string& getSerialNum() { return serialNumber; }
+
 		const ofVbo& getPointCloudVbo() const;
 
 	private:
@@ -107,6 +112,9 @@ namespace ofxAzureKinect
 		bool bUpdateBodies;
 		bool bUpdateWorld;
 		bool bUpdateVbo;
+		
+		int captureTimeoutMs = 1000;
+		bool captureTimeoutSilent = false;
 
 		std::string serialNumber;
 
@@ -114,6 +122,7 @@ namespace ofxAzureKinect
 		k4a::calibration calibration;
 		k4a::transformation transformation;
 		k4a::device device;
+		k4a_device_t device_handle;
 		k4a::capture capture;
 
 		k4abt_tracker_configuration_t trackerConfig;

@@ -2,7 +2,6 @@
 
 #include "ofLog.h"
 
-const int32_t TIMEOUT_IN_MS = 1000;
 
 namespace ofxAzureKinect
 {
@@ -19,6 +18,8 @@ namespace ofxAzureKinect
 		, updateWorld(true)
 		, updateVbo(true)
 		, synchronized(true)
+		, captureTimeoutMs(1000)
+		, timeoutSilent(false)
 	{}
 
 	int Device::getInstalledCount()
@@ -62,6 +63,9 @@ namespace ofxAzureKinect
 
 		this->trackerConfig.sensor_orientation = settings.sensorOrientation;
 
+		this->captureTimeoutMs = settings.captureTimeoutMs;
+		this->captureTimeoutSilent = settings.timeoutSilent;
+
 		if (this->bOpen)
 		{
 			ofLogWarning(__FUNCTION__) << "Device " << this->index << " already open!";
@@ -91,6 +95,7 @@ namespace ofxAzureKinect
 		this->bOpen = true;
 
 		this->bUpdateColor = settings.updateColor;
+		if (!this->bUpdateColor && settings.colorResolution != K4A_COLOR_RESOLUTION_OFF) { ofLogWarning(__FUNCTION__) << "Color image not being updated, but Kinect is capturing color image. This will have performance impact (Latency.)"; }
 		this->bUpdateIr = settings.updateIr;
 		this->bUpdateBodies = settings.updateBodies;
 		this->bUpdateWorld = settings.updateWorld;
@@ -205,9 +210,10 @@ namespace ofxAzureKinect
 		// Get a capture.
 		try
 		{ 
-			if (!this->device.get_capture(&this->capture, std::chrono::milliseconds(TIMEOUT_IN_MS)))
+			if (!this->device.get_capture(&this->capture, std::chrono::milliseconds(captureTimeoutMs)))
 			{
-				ofLogWarning(__FUNCTION__) << "Timed out waiting for a capture for device " << this->index << ".";
+				if (!this->captureTimeoutSilent)
+					ofLogWarning(__FUNCTION__) << "Timed out waiting for a capture for device " << this->index << ".";
 				return;
 			}
 		}
