@@ -7,16 +7,18 @@ void ofApp::setup()
 
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
-	auto kinectSettings = ofxAzureKinect::DeviceSettings();
-	kinectSettings.synchronized = false;
-	kinectSettings.depthMode = K4A_DEPTH_MODE_NFOV_UNBINNED;
-	kinectSettings.updateIr = false;
-	kinectSettings.updateColor = false;
-	//kinectSettings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
-	kinectSettings.updateBodies = true;
-	kinectSettings.updateWorld = true;
-	kinectSettings.updateVbo = false;
-	if (this->kinectDevice.open(kinectSettings))
+	auto deviceSettings = ofxAzureKinect::DeviceSettings();
+	deviceSettings.synchronized = false;
+	deviceSettings.depthMode = K4A_DEPTH_MODE_NFOV_UNBINNED;
+	deviceSettings.updateIr = false;
+	deviceSettings.updateColor = false;
+	//deviceSettings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
+	deviceSettings.updateWorld = true;
+	deviceSettings.updateVbo = false;
+	auto bodyTrackingSettings = ofxAzureKinect::BodyTrackingSettings();
+	//bodyTrackingSettings.processingMode = K4ABT_TRACKER_PROCESSING_MODE_CPU;
+	bodyTrackingSettings.updateBodies = true;
+	if (this->kinectDevice.open(deviceSettings, bodyTrackingSettings))
 	{
 		this->kinectDevice.startCameras();
 	}
@@ -60,7 +62,7 @@ void ofApp::draw()
 	}
 
 	this->camera.begin();
-	{		
+	{
 		ofPushMatrix();
 		{
 			ofRotateXDeg(180);
@@ -121,9 +123,9 @@ void ofApp::draw()
 
 				// Spine.
 				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_PELVIS].position);
-				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_SPINE_NAVAL].position);
+				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_SPINE_NAVEL].position);
 
-				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_SPINE_NAVAL].position);
+				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_SPINE_NAVEL].position);
 				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position);
 
 				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_SPINE_CHEST].position);
@@ -207,7 +209,10 @@ void ofApp::draw()
 	}
 	this->camera.end();
 
-	ofDrawBitmapStringHighlight(ofToString(ofGetFrameRate(), 2) + " FPS", 10, 20);
+	std::ostringstream oss;
+	oss << ofToString(ofGetFrameRate(), 2) + " FPS" << std::endl;
+	oss << "Joint Smoothing: " << this->kinectDevice.jointSmoothing;
+	ofDrawBitmapStringHighlight(oss.str(), 10, 20);
 }
 
 //--------------------------------------------------------------
@@ -226,8 +231,12 @@ void ofApp::mouseMoved(int x, int y ){
 }
 
 //--------------------------------------------------------------
-void ofApp::mouseDragged(int x, int y, int button){
-
+void ofApp::mouseDragged(int x, int y, int button)
+{
+	if (button == 1)
+	{
+		this->kinectDevice.jointSmoothing = ofMap(x, 0, ofGetWidth(), 0.0f, 1.0f, true);
+	}
 }
 
 //--------------------------------------------------------------
