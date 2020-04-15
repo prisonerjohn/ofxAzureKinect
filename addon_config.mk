@@ -67,11 +67,11 @@ vs:
 	ADDON_LIBS += $(AZUREKINECT_BODY_SDK)\sdk\windows-desktop\amd64\release\lib\k4abt.lib
 	
 linux64: 
-	ADDON_PKG_CONFIG_LIBRARIES += libturbojpeg
 	ADDON_INCLUDES += /usr/include
 	ADDON_INCLUDES += /usr/include/k4a
 	ADDON_LIBS += /usr/lib/libk4abt.so
 	ADDON_LIBS += /usr/lib/x86_64-linux-gnu/libk4a.so
+	ADDON_LIBS += /opt/libjpeg-turbo/lib64/libturbojpeg.a
 
 linux:
 
