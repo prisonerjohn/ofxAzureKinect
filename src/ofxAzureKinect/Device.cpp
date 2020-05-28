@@ -8,6 +8,7 @@ namespace ofxAzureKinect
 {
 	DeviceSettings::DeviceSettings(int idx)
 		: deviceIndex(idx)
+		, deviceSerial("")
 		, depthMode(K4A_DEPTH_MODE_WFOV_2X2BINNED)
 		, colorResolution(K4A_COLOR_RESOLUTION_2160P)
 		, colorFormat(K4A_IMAGE_FORMAT_COLOR_BGRA32)
@@ -79,23 +80,63 @@ namespace ofxAzureKinect
 			return false;
 		}
 
-		try
+		if (deviceSettings.deviceSerial.empty())
 		{
-			// Open connection to the device.
-			this->device = k4a::device::open(static_cast<uint32_t>(deviceSettings.deviceIndex));
+			// Simply load the device at the requested index.
+			try
+			{
+				// Open connection to the device.
+				this->device = k4a::device::open(static_cast<uint32_t>(deviceSettings.deviceIndex));
 
-			// Get the device serial number.
-			this->serialNumber = this->device.get_serialnum();
+				// Get the device serial number.
+				this->serialNumber = this->device.get_serialnum();
+			}
+			catch (const k4a::error& e)
+			{
+				ofLogError(__FUNCTION__) << e.what();
 
+				this->device.close();
 
+				return false;
+			}
 		}
-		catch (const k4a::error& e)
+		else
 		{
-			ofLogError(__FUNCTION__) << e.what();
-			
-			this->device.close();
+			// Loop through devices and find the one with the requested serial.
+			bool deviceFound = false;
+			int numConnected = Device::getInstalledCount();
+			for (int i = 0; i < numConnected; ++i)
+			{
+				try
+				{
+					// Open connection to the device.
+					this->device = k4a::device::open(static_cast<uint32_t>(i));
 
-			return false;
+					// Get the device serial number and check it.
+					this->serialNumber = this->device.get_serialnum();
+					if (this->serialNumber == deviceSettings.deviceSerial)
+					{
+						deviceFound = true;
+						deviceSettings.deviceIndex = i;
+						break;
+					}
+					else
+					{
+						this->device.close();
+					}
+				}
+				catch (const k4a::error& e)
+				{
+					// Don't worry about it; we just might be trying to access an already open device.
+					continue;
+				}
+			}
+
+			if (!deviceFound)
+			{
+				ofLogError(__FUNCTION__) << "No device found with serial number " << deviceSettings.deviceSerial;
+				return false;
+			}
 		}
 
 		this->index = deviceSettings.deviceIndex;
@@ -254,7 +295,7 @@ namespace ofxAzureKinect
 		{
 			if (!this->device.get_capture(&this->capture, std::chrono::milliseconds(TIMEOUT_IN_MS)))
 			{
-				ofLogWarning(__FUNCTION__) << "Timed out waiting for a capture for device " << this->index << ".";
+				ofLogWarning(__FUNCTION__) << "Timed out waiting for a capture for device " << this->index << "::" << this->serialNumber << ".";
 				return;
 			}
 		}

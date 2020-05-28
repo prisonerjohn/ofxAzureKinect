@@ -20,6 +20,7 @@ namespace ofxAzureKinect
 	struct DeviceSettings
 	{
 		int deviceIndex;
+		std::string deviceSerial;
 
 		DepthMode depthMode;
 		ColorResolution colorResolution;
