@@ -7,17 +7,65 @@ void ofApp::setup()
 
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
+	// The following will start all connected devices as standalone (no sync).
+	//this->setupStandalone();
+
+	// The following will assign sync to devices based on serial number.
+	this->setupMasterSubordinate();
+}
+
+//--------------------------------------------------------------
+void ofApp::setupStandalone()
+{
 	int numConnected = ofxAzureKinect::Device::getInstalledCount();
-	
+
 	auto kinectSettings = ofxAzureKinect::DeviceSettings();
 	kinectSettings.colorResolution = K4A_COLOR_RESOLUTION_720P;
 	kinectSettings.syncImages = true;
 	kinectSettings.updateWorld = false;
-	
+
 	for (int i = 0; i < numConnected; ++i)
 	{
 		kinectSettings.deviceIndex = i;
 
+		auto device = std::make_shared<ofxAzureKinect::Device>();
+		if (device->open(kinectSettings))
+		{
+			this->kinectDevices.push_back(device);
+			device->startCameras();
+		}
+	}
+}
+
+//--------------------------------------------------------------
+void ofApp::setupMasterSubordinate()
+{
+	// Make sure to replace the following serials by the ones on your devices.
+	const std::string serialMaster = "000224694712";
+	const std::string serialSubordinate = "000569192412";
+
+	auto kinectSettings = ofxAzureKinect::DeviceSettings();
+	kinectSettings.colorResolution = K4A_COLOR_RESOLUTION_720P;
+	kinectSettings.syncImages = true;
+	kinectSettings.updateWorld = false;
+
+	// Open Master device.
+	kinectSettings.deviceSerial = serialMaster;
+	kinectSettings.wiredSyncMode = K4A_WIRED_SYNC_MODE_MASTER;
+	{
+		auto device = std::make_shared<ofxAzureKinect::Device>();
+		if (device->open(kinectSettings))
+		{
+			this->kinectDevices.push_back(device);
+			device->startCameras();
+		}
+	}
+
+	// Open Subordinate device.
+	kinectSettings.deviceSerial = serialSubordinate;
+	kinectSettings.wiredSyncMode = K4A_WIRED_SYNC_MODE_SUBORDINATE;
+	//kinectSettings.subordinateDelayUsec = 100;
+	{
 		auto device = std::make_shared<ofxAzureKinect::Device>();
 		if (device->open(kinectSettings))
 		{

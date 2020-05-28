@@ -26,6 +26,9 @@ public:
 	void dragEvent(ofDragInfo dragInfo);
 	void gotMessage(ofMessage msg);
 
+	void setupStandalone();
+	void setupMasterSubordinate();
+
 private:
 	std::vector<std::shared_ptr<ofxAzureKinect::Device>> kinectDevices;
 };

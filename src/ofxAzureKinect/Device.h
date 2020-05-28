@@ -26,7 +26,10 @@ namespace ofxAzureKinect
 		ColorResolution colorResolution;
 		ImageFormat colorFormat;
 		FramesPerSecond cameraFps;
-		
+
+		WiredSyncMode wiredSyncMode;
+		uint32_t subordinateDelayUsec;
+
 		bool updateColor;
 		bool updateIr;
 		bool updateWorld;
@@ -65,6 +68,9 @@ namespace ofxAzureKinect
 
 		bool startCameras();
 		bool stopCameras();
+
+		bool isSyncInConnected() const;
+		bool isSyncOutConnected() const;
 
 		bool isOpen() const;
 		bool isStreaming() const;

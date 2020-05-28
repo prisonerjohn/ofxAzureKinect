@@ -13,6 +13,8 @@ namespace ofxAzureKinect
 		, colorResolution(K4A_COLOR_RESOLUTION_2160P)
 		, colorFormat(K4A_IMAGE_FORMAT_COLOR_BGRA32)
 		, cameraFps(K4A_FRAMES_PER_SECOND_30)
+		, wiredSyncMode(K4A_WIRED_SYNC_MODE_STANDALONE)
+		, subordinateDelayUsec(0)
 		, updateColor(true)
 		, updateIr(true)
 		, updateWorld(true)
@@ -70,6 +72,9 @@ namespace ofxAzureKinect
 		this->config.color_resolution = deviceSettings.colorResolution;
 		this->config.camera_fps = deviceSettings.cameraFps;
 		this->config.synchronized_images_only = deviceSettings.syncImages;
+
+		this->config.wired_sync_mode = deviceSettings.wiredSyncMode;
+		this->config.subordinate_delay_off_master_usec = deviceSettings.subordinateDelayUsec;
 
 		this->trackerConfig.sensor_orientation = bodyTrackingSettings.sensorOrientation;
 		this->trackerConfig.gpu_device_id = bodyTrackingSettings.gpuDeviceID;
@@ -221,6 +226,23 @@ namespace ofxAzureKinect
 			}
 		}
 
+		// Check compatible sync mode and connection.
+		if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_MASTER && !this->isSyncOutConnected())
+		{
+			ofLogWarning(__FUNCTION__) << "Wired sync mode set to Master but Sync Out not connected! Reverting to Standalone.";
+			this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
+		}
+		else if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_SUBORDINATE && !this->isSyncInConnected())
+		{
+			ofLogWarning(__FUNCTION__) << "Wired sync mode set to Subordinate but Sync In not connected! Reverting to Standalone.";
+			this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
+		}
+
+		if (this->config.wired_sync_mode != K4A_WIRED_SYNC_MODE_SUBORDINATE)
+		{
+			this->config.subordinate_delay_off_master_usec = 0;
+		}
+
 		// Start cameras.
 		try
 		{
@@ -265,6 +287,16 @@ namespace ofxAzureKinect
 		this->bStreaming = false;
 
 		return true;
+	}
+
+	bool Device::isSyncInConnected() const
+	{
+		return this->device.is_sync_in_connected();
+	}
+
+	bool Device::isSyncOutConnected() const
+	{
+		return this->device.is_sync_out_connected();
 	}
 
 	void Device::threadedFunction()
