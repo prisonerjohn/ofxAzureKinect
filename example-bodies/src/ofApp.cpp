@@ -8,7 +8,7 @@ void ofApp::setup()
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
 	auto deviceSettings = ofxAzureKinect::DeviceSettings();
-	deviceSettings.synchronized = false;
+	deviceSettings.syncImages = false;
 	deviceSettings.depthMode = K4A_DEPTH_MODE_NFOV_UNBINNED;
 	deviceSettings.updateIr = false;
 	deviceSettings.updateColor = false;

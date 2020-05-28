@@ -8,7 +8,7 @@ void ofApp::setup()
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
 	auto kinectSettings = ofxAzureKinect::DeviceSettings();
-	kinectSettings.synchronized = false;
+	kinectSettings.syncImages = false;
 	kinectSettings.updateWorld = false;
 	if (this->kinectDevice.open(kinectSettings))
 	{

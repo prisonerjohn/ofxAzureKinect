@@ -31,7 +31,7 @@ namespace ofxAzureKinect
 		bool updateWorld;
 		bool updateVbo;
 
-		bool synchronized;
+		bool syncImages;
 
 		DeviceSettings(int idx = 0);
 	};

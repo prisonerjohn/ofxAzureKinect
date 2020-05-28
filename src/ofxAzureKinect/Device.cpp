@@ -16,7 +16,7 @@ namespace ofxAzureKinect
 		, updateIr(true)
 		, updateWorld(true)
 		, updateVbo(true)
-		, synchronized(true)
+		, syncImages(true)
 	{}
 
 	BodyTrackingSettings::BodyTrackingSettings()
@@ -68,7 +68,7 @@ namespace ofxAzureKinect
 		this->config.color_format = deviceSettings.colorFormat;
 		this->config.color_resolution = deviceSettings.colorResolution;
 		this->config.camera_fps = deviceSettings.cameraFps;
-		this->config.synchronized_images_only = deviceSettings.synchronized;
+		this->config.synchronized_images_only = deviceSettings.syncImages;
 
 		this->trackerConfig.sensor_orientation = bodyTrackingSettings.sensorOrientation;
 		this->trackerConfig.gpu_device_id = bodyTrackingSettings.gpuDeviceID;
