@@ -4,6 +4,7 @@
 void ofApp::setup()
 {
 	//ofSetLogLevel(OF_LOG_VERBOSE);
+	ofSetVerticalSync(false);
 
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
@@ -106,7 +107,7 @@ void ofApp::draw()
 			device->getDepthTex().draw(x, 360, 320, 320);
 			device->getIrTex().draw(x + 320, 360, 320, 320);
 
-			ofDrawBitmapStringHighlight(ofToString(device->getFps(), 2) + " FPS", x + 10, 350);
+			ofDrawBitmapStringHighlight(ofToString(device->getFps(), 2) + " FPS", x + 10, 350, device->isFrameNew() ? ofColor::red : ofColor::black);
 
 			x += 640;
 		}

@@ -75,6 +75,8 @@ namespace ofxAzureKinect
 
 		bool isOpen() const;
 		bool isStreaming() const;
+		bool isFrameNew() const;
+
 		float getFps() const;
 		const std::string& getSerialNumber() const;
 
@@ -143,6 +145,8 @@ namespace ofxAzureKinect
 		std::condition_variable condition;
 		uint64_t pixFrameNum;
 		uint64_t texFrameNum;
+
+		bool bNewFrame;
 		ofFpsCounter fpsCounter;
 
 		std::string serialNumber;

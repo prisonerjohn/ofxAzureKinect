@@ -318,6 +318,8 @@ namespace ofxAzureKinect
 
 	void Device::update(ofEventArgs& args)
 	{
+		this->bNewFrame = false;
+
 		if (this->texFrameNum != this->pixFrameNum)
 		{
 			std::unique_lock<std::mutex> lock(this->mutex);
@@ -601,6 +603,7 @@ namespace ofxAzureKinect
 
 		// Update frame number.
 		this->texFrameNum = this->pixFrameNum;
+		this->bNewFrame = true;
 		this->fpsCounter.newFrame();
 	}
 
@@ -829,6 +832,11 @@ namespace ofxAzureKinect
 	bool Device::isStreaming() const
 	{
 		return this->bStreaming;
+	}
+
+	bool Device::isFrameNew() const
+	{
+		return this->bNewFrame;
 	}
 
 	float Device::getFps() const
