@@ -604,7 +604,6 @@ namespace ofxAzureKinect
 		// Update frame number.
 		this->texFrameNum = this->pixFrameNum;
 		this->bNewFrame = true;
-		this->fpsCounter.newFrame();
 	}
 
 	bool Device::setupDepthToWorldTable()
@@ -837,11 +836,6 @@ namespace ofxAzureKinect
 	bool Device::isFrameNew() const
 	{
 		return this->bNewFrame;
-	}
-
-	double Device::getFps() const
-	{
-		return this->fpsCounter.getFps();
 	}
 
 	const std::string& Device::getSerialNumber() const

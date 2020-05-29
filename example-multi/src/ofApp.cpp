@@ -13,6 +13,9 @@ void ofApp::setup()
 
 	// The following will assign sync to devices based on serial number.
 	this->setupMasterSubordinate();
+
+	// Add FPS counter for each device.
+	this->fpsCounters.resize(this->kinectDevices.size());
 }
 
 //--------------------------------------------------------------
@@ -90,7 +93,13 @@ void ofApp::exit()
 //--------------------------------------------------------------
 void ofApp::update()
 {
-
+	for (int i = 0;i < this->kinectDevices.size(); ++i)
+	{
+		if (this->kinectDevices[i]->isFrameNew())
+		{
+			this->fpsCounters[i].newFrame();
+		}
+	}
 }
 
 //--------------------------------------------------------------
@@ -99,15 +108,16 @@ void ofApp::draw()
 	ofBackground(128);
 
 	int x = 0;
-	for (auto device : this->kinectDevices)
+	for (int i = 0; i < this->kinectDevices.size(); ++i)
 	{
+		auto device = this->kinectDevices[i];
 		if (device->isStreaming())
 		{
 			device->getColorTex().draw(x, 0, 640, 360);
 			device->getDepthTex().draw(x, 360, 320, 320);
 			device->getIrTex().draw(x + 320, 360, 320, 320);
 
-			ofDrawBitmapStringHighlight(ofToString(device->getFps(), 2) + " FPS", x + 10, 350, device->isFrameNew() ? ofColor::red : ofColor::black);
+			ofDrawBitmapStringHighlight(ofToString(this->fpsCounters[i].getFps(), 2) + " FPS", x + 10, 350, device->isFrameNew() ? ofColor::red : ofColor::black);
 
 			x += 640;
 		}

@@ -77,7 +77,6 @@ namespace ofxAzureKinect
 		bool isStreaming() const;
 		bool isFrameNew() const;
 
-		double getFps() const;
 		const std::string& getSerialNumber() const;
 
 		const ofShortPixels& getDepthPix() const;
@@ -147,7 +146,6 @@ namespace ofxAzureKinect
 		uint64_t texFrameNum;
 
 		bool bNewFrame;
-		ofFpsCounter fpsCounter;
 
 		std::string serialNumber;
 
