@@ -76,6 +76,7 @@ namespace ofxAzureKinect
 		bool isOpen() const;
 		bool isStreaming() const;
 		float getFps() const;
+		const std::string& getSerialNumber() const;
 
 		const ofShortPixels& getDepthPix() const;
 		const ofTexture& getDepthTex() const;

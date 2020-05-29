@@ -836,6 +836,11 @@ namespace ofxAzureKinect
 		return this->fpsCounter.getFps();
 	}
 
+	const std::string& Device::getSerialNumber() const
+	{
+		return this->serialNumber;
+	}
+
 	const ofShortPixels& Device::getDepthPix() const
 	{
 		return this->depthPix;
