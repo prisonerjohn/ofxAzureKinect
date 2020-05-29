@@ -839,7 +839,7 @@ namespace ofxAzureKinect
 		return this->bNewFrame;
 	}
 
-	float Device::getFps() const
+	double Device::getFps() const
 	{
 		return this->fpsCounter.getFps();
 	}
