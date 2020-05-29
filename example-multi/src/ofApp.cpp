@@ -106,6 +106,8 @@ void ofApp::draw()
 			device->getDepthTex().draw(x, 360, 320, 320);
 			device->getIrTex().draw(x + 320, 360, 320, 320);
 
+			ofDrawBitmapStringHighlight(ofToString(device->getFps(), 2) + " FPS", x + 10, 350);
+
 			x += 640;
 		}
 	}

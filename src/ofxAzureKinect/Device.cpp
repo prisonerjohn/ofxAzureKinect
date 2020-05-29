@@ -596,6 +596,7 @@ namespace ofxAzureKinect
 			// Update frame number.
 			this->texFrameNum = this->pixFrameNum;
 		}
+		this->fpsCounter.newFrame();
 	}
 
 	bool Device::setupDepthToWorldTable()
@@ -823,6 +824,11 @@ namespace ofxAzureKinect
 	bool Device::isStreaming() const
 	{
 		return this->bStreaming;
+	}
+
+	float Device::getFps() const
+	{
+		return this->fpsCounter.getFps();
 	}
 
 	const ofShortPixels& Device::getDepthPix() const

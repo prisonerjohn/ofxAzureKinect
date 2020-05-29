@@ -6,6 +6,7 @@
 
 #include "ofBufferObject.h"
 #include "ofEvents.h"
+#include "ofFpsCounter.h"
 #include "ofParameter.h"
 #include "ofPixels.h"
 #include "ofTexture.h"
@@ -74,6 +75,7 @@ namespace ofxAzureKinect
 
 		bool isOpen() const;
 		bool isStreaming() const;
+		float getFps() const;
 
 		const ofShortPixels& getDepthPix() const;
 		const ofTexture& getDepthTex() const;
@@ -140,6 +142,7 @@ namespace ofxAzureKinect
 		std::condition_variable condition;
 		uint64_t pixFrameNum;
 		uint64_t texFrameNum;
+		ofFpsCounter fpsCounter;
 
 		std::string serialNumber;
 
