@@ -7,27 +7,14 @@ const int32_t TIMEOUT_IN_MS = 1000;
 namespace ofxAzureKinect
 {
 	DeviceSettings::DeviceSettings(int idx)
-		: deviceIndex(idx)
-		, deviceSerial("")
-		, depthMode(K4A_DEPTH_MODE_WFOV_2X2BINNED)
-		, colorResolution(K4A_COLOR_RESOLUTION_2160P)
-		, colorFormat(K4A_IMAGE_FORMAT_COLOR_BGRA32)
-		, cameraFps(K4A_FRAMES_PER_SECOND_30)
-		, wiredSyncMode(K4A_WIRED_SYNC_MODE_STANDALONE)
-		, subordinateDelayUsec(0)
-		, updateColor(true)
-		, updateIr(true)
-		, updateWorld(true)
-		, updateVbo(true)
-		, syncImages(true)
-	{}
+		: deviceIndex(idx), deviceSerial(""), depthMode(K4A_DEPTH_MODE_WFOV_2X2BINNED), colorResolution(K4A_COLOR_RESOLUTION_2160P), colorFormat(K4A_IMAGE_FORMAT_COLOR_BGRA32), cameraFps(K4A_FRAMES_PER_SECOND_30), wiredSyncMode(K4A_WIRED_SYNC_MODE_STANDALONE), subordinateDelayUsec(0), updateColor(true), updateIr(true), updateWorld(true), updateVbo(true), syncImages(true), enableIMU(false)
+	{
+	}
 
 	BodyTrackingSettings::BodyTrackingSettings()
-		: sensorOrientation(K4ABT_SENSOR_ORIENTATION_DEFAULT)
-		, processingMode(K4ABT_TRACKER_PROCESSING_MODE_GPU)
-		, gpuDeviceID(0)
-		, updateBodies(false)
-	{}
+		: sensorOrientation(K4ABT_SENSOR_ORIENTATION_DEFAULT), processingMode(K4ABT_TRACKER_PROCESSING_MODE_GPU), gpuDeviceID(0), updateBodies(false)
+	{
+	}
 
 	int Device::getInstalledCount()
 	{
@@ -35,19 +22,9 @@ namespace ofxAzureKinect
 	}
 
 	Device::Device()
-		: index(-1)
-		, pixFrameNum(0)
-		, texFrameNum(0)
-		, bOpen(false)
-		, bStreaming(false)
-		, bUpdateColor(false)
-		, bUpdateIr(false)
-		, bUpdateBodies(false)
-		, bUpdateWorld(false)
-		, bUpdateVbo(false)
-		, bodyTracker(nullptr)
-		, jpegDecompressor(tjInitDecompress())
-	{}
+		: index(-1), pixFrameNum(0), texFrameNum(0), bOpen(false), bStreaming(false), bUpdateColor(false), bUpdateIr(false), bUpdateBodies(false), bUpdateWorld(false), bUpdateVbo(false), bodyTracker(nullptr), jpegDecompressor(tjInitDecompress())
+	{
+	}
 
 	Device::~Device()
 	{
@@ -74,6 +51,7 @@ namespace ofxAzureKinect
 		this->config.color_resolution = deviceSettings.colorResolution;
 		this->config.camera_fps = deviceSettings.cameraFps;
 		this->config.synchronized_images_only = deviceSettings.syncImages;
+		this->enableIMU = deviceSettings.enableIMU;
 
 		this->config.wired_sync_mode = deviceSettings.wiredSyncMode;
 		this->config.subordinate_delay_off_master_usec = deviceSettings.subordinateDelayUsec;
@@ -98,7 +76,7 @@ namespace ofxAzureKinect
 				// Get the device serial number.
 				this->serialNumber = this->device.get_serialnum();
 			}
-			catch (const k4a::error& e)
+			catch (const k4a::error &e)
 			{
 				ofLogError(__FUNCTION__) << e.what();
 
@@ -132,7 +110,7 @@ namespace ofxAzureKinect
 						this->device.close();
 					}
 				}
-				catch (const k4a::error& e)
+				catch (const k4a::error &e)
 				{
 					// Don't worry about it; we just might be trying to access an already open device.
 					continue;
@@ -157,8 +135,7 @@ namespace ofxAzureKinect
 		this->bUpdateBodies = bodyTrackingSettings.updateBodies;
 		if (this->bUpdateBodies)
 		{
-			this->eventListeners.push(this->jointSmoothing.newListener([this](float &)
-			{
+			this->eventListeners.push(this->jointSmoothing.newListener([this](float &) {
 				k4abt_tracker_set_temporal_smoothing(this->bodyTracker, this->jointSmoothing);
 			}));
 		}
@@ -170,7 +147,14 @@ namespace ofxAzureKinect
 
 	bool Device::close()
 	{
-		if (!this->bOpen) return false;
+		if (!this->bOpen)
+			return false;
+
+		// Start IMU is cameras are enabled
+		if (this->enableIMU)
+		{
+			k4a_device_stop_imu(device.handle());
+		}
 
 		this->stopCameras();
 
@@ -198,7 +182,7 @@ namespace ofxAzureKinect
 		{
 			this->calibration = this->device.get_calibration(this->config.depth_mode, this->config.color_resolution);
 		}
-		catch (const k4a::error& e)
+		catch (const k4a::error &e)
 		{
 			ofLogError(__FUNCTION__) << e.what();
 			return false;
@@ -250,10 +234,16 @@ namespace ofxAzureKinect
 		{
 			this->device.start_cameras(&this->config);
 		}
-		catch (const k4a::error& e)
+		catch (const k4a::error &e)
 		{
 			ofLogError(__FUNCTION__) << e.what();
 			return false;
+		}
+
+		// Can only start the IMU if cameras are enabled
+		if (this->enableIMU)
+		{
+			k4a_device_start_imu(device.handle());
 		}
 
 		this->startThread();
@@ -266,7 +256,8 @@ namespace ofxAzureKinect
 
 	bool Device::stopCameras()
 	{
-		if (!this->bStreaming) return false;
+		if (!this->bStreaming)
+			return false;
 
 		std::unique_lock<std::mutex> lock(this->mutex);
 		this->stopThread();
@@ -316,7 +307,7 @@ namespace ofxAzureKinect
 		}
 	}
 
-	void Device::update(ofEventArgs& args)
+	void Device::update(ofEventArgs &args)
 	{
 		this->bNewFrame = false;
 
@@ -341,7 +332,7 @@ namespace ofxAzureKinect
 				return;
 			}
 		}
-		catch (const k4a::error& e)
+		catch (const k4a::error &e)
 		{
 			ofLogError(__FUNCTION__) << e.what();
 			return;
@@ -357,7 +348,7 @@ namespace ofxAzureKinect
 				this->depthPix.allocate(depthDims.x, depthDims.y, 1);
 			}
 
-			const auto depthData = reinterpret_cast<uint16_t*>(depthImg.get_buffer());
+			const auto depthData = reinterpret_cast<uint16_t *>(depthImg.get_buffer());
 			this->depthPix.setFromPixels(depthData, depthDims.x, depthDims.y, 1);
 
 			ofLogVerbose(__FUNCTION__) << "Capture Depth16 " << depthDims.x << "x" << depthDims.y << " stride: " << depthImg.get_stride_bytes() << ".";
@@ -383,18 +374,18 @@ namespace ofxAzureKinect
 				if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_MJPG)
 				{
 					const int decompressStatus = tjDecompress2(this->jpegDecompressor,
-						colorImg.get_buffer(),
-						static_cast<unsigned long>(colorImg.get_size()),
-						this->colorPix.getData(),
-						colorDims.x,
-						0, // pitch
-						colorDims.y,
-						TJPF_BGRA,
-						TJFLAG_FASTDCT | TJFLAG_FASTUPSAMPLE);
+															   colorImg.get_buffer(),
+															   static_cast<unsigned long>(colorImg.get_size()),
+															   this->colorPix.getData(),
+															   colorDims.x,
+															   0, // pitch
+															   colorDims.y,
+															   TJPF_BGRA,
+															   TJFLAG_FASTDCT | TJFLAG_FASTUPSAMPLE);
 				}
 				else
 				{
-					const auto colorData = reinterpret_cast<uint8_t*>(colorImg.get_buffer());
+					const auto colorData = reinterpret_cast<uint8_t *>(colorImg.get_buffer());
 					this->colorPix.setFromPixels(colorData, colorDims.x, colorDims.y, 4);
 				}
 
@@ -419,7 +410,7 @@ namespace ofxAzureKinect
 					this->irPix.allocate(irSize.x, irSize.y, 1);
 				}
 
-				const auto irData = reinterpret_cast<uint16_t*>(irImg.get_buffer());
+				const auto irData = reinterpret_cast<uint16_t *>(irImg.get_buffer());
 				this->irPix.setFromPixels(irData, irSize.x, irSize.y, 1);
 
 				ofLogVerbose(__FUNCTION__) << "Capture Ir16 " << irSize.x << "x" << irSize.y << " stride: " << irImg.get_stride_bytes() << ".";
@@ -451,7 +442,7 @@ namespace ofxAzureKinect
 						this->bodyIndexPix.allocate(bodyIndexSize.x, bodyIndexSize.y, 1);
 					}
 
-					const auto bodyIndexData = reinterpret_cast<uint8_t*>(bodyIndexImg.get_buffer());
+					const auto bodyIndexData = reinterpret_cast<uint8_t *>(bodyIndexImg.get_buffer());
 					this->bodyIndexPix.setFromPixels(bodyIndexData, bodyIndexSize.x, bodyIndexSize.y, 1);
 
 					ofLogVerbose(__FUNCTION__) << "Capture BodyIndex " << bodyIndexSize.x << "x" << bodyIndexSize.y << " stride: " << bodyIndexImg.get_stride_bytes() << ".";
@@ -656,9 +647,9 @@ namespace ofxAzureKinect
 		return false;
 	}
 
-	bool Device::setupImageToWorldTable(k4a_calibration_type_t type, k4a::image& img)
+	bool Device::setupImageToWorldTable(k4a_calibration_type_t type, k4a::image &img)
 	{
-		const k4a_calibration_camera_t& calibrationCamera = (type == K4A_CALIBRATION_TYPE_DEPTH) ? this->calibration.depth_camera_calibration : this->calibration.color_camera_calibration;
+		const k4a_calibration_camera_t &calibrationCamera = (type == K4A_CALIBRATION_TYPE_DEPTH) ? this->calibration.depth_camera_calibration : this->calibration.color_camera_calibration;
 
 		const auto dims = glm::ivec2(
 			calibrationCamera.resolution_width,
@@ -667,16 +658,16 @@ namespace ofxAzureKinect
 		try
 		{
 			img = k4a::image::create(K4A_IMAGE_FORMAT_CUSTOM,
-				dims.x, dims.y,
-				dims.x * static_cast<int>(sizeof(k4a_float2_t)));
+									 dims.x, dims.y,
+									 dims.x * static_cast<int>(sizeof(k4a_float2_t)));
 		}
-		catch (const k4a::error& e)
+		catch (const k4a::error &e)
 		{
 			ofLogError(__FUNCTION__) << e.what();
 			return false;
 		}
 
-		auto imgData = reinterpret_cast<k4a_float2_t*>(img.get_buffer());
+		auto imgData = reinterpret_cast<k4a_float2_t *>(img.get_buffer());
 
 		k4a_float2_t p;
 		k4a_float3_t ray;
@@ -709,7 +700,7 @@ namespace ofxAzureKinect
 		return true;
 	}
 
-	bool Device::updatePointsCache(k4a::image& frameImg, k4a::image& tableImg)
+	bool Device::updatePointsCache(k4a::image &frameImg, k4a::image &tableImg)
 	{
 		const auto frameDims = glm::ivec2(frameImg.get_width_pixels(), frameImg.get_height_pixels());
 		const auto tableDims = glm::ivec2(tableImg.get_width_pixels(), tableImg.get_height_pixels());
@@ -719,8 +710,8 @@ namespace ofxAzureKinect
 			return false;
 		}
 
-		const auto frameData = reinterpret_cast<uint16_t*>(frameImg.get_buffer());
-		const auto tableData = reinterpret_cast<k4a_float2_t*>(tableImg.get_buffer());
+		const auto frameData = reinterpret_cast<uint16_t *>(frameImg.get_buffer());
+		const auto tableData = reinterpret_cast<k4a_float2_t *>(tableImg.get_buffer());
 
 		this->positionCache.resize(frameDims.x * frameDims.y);
 		this->uvCache.resize(frameDims.x * frameDims.y);
@@ -738,8 +729,7 @@ namespace ofxAzureKinect
 					this->positionCache[count] = glm::vec3(
 						tableData[idx].xy.x * depthVal,
 						tableData[idx].xy.y * depthVal,
-						depthVal
-					);
+						depthVal);
 
 					this->uvCache[count] = glm::vec2(x, y);
 
@@ -753,7 +743,7 @@ namespace ofxAzureKinect
 		return true;
 	}
 
-	bool Device::updateDepthInColorFrame(const k4a::image& depthImg, const k4a::image& colorImg)
+	bool Device::updateDepthInColorFrame(const k4a::image &depthImg, const k4a::image &colorImg)
 	{
 		const auto colorDims = glm::ivec2(colorImg.get_width_pixels(), colorImg.get_height_pixels());
 
@@ -761,18 +751,18 @@ namespace ofxAzureKinect
 		try
 		{
 			transformedDepthImg = k4a::image::create(K4A_IMAGE_FORMAT_DEPTH16,
-				colorDims.x, colorDims.y,
-				colorDims.x * static_cast<int>(sizeof(uint16_t)));
+													 colorDims.x, colorDims.y,
+													 colorDims.x * static_cast<int>(sizeof(uint16_t)));
 
 			this->transformation.depth_image_to_color_camera(depthImg, &transformedDepthImg);
 		}
-		catch (const k4a::error& e)
+		catch (const k4a::error &e)
 		{
 			ofLogError(__FUNCTION__) << e.what();
 			return false;
 		}
 
-		const auto transformedColorData = reinterpret_cast<uint16_t*>(transformedDepthImg.get_buffer());
+		const auto transformedColorData = reinterpret_cast<uint16_t *>(transformedDepthImg.get_buffer());
 
 		if (!this->depthInColorPix.isAllocated())
 		{
@@ -788,7 +778,7 @@ namespace ofxAzureKinect
 		return true;
 	}
 
-	bool Device::updateColorInDepthFrame(const k4a::image& depthImg, const k4a::image& colorImg)
+	bool Device::updateColorInDepthFrame(const k4a::image &depthImg, const k4a::image &colorImg)
 	{
 		const auto depthDims = glm::ivec2(depthImg.get_width_pixels(), depthImg.get_height_pixels());
 
@@ -796,18 +786,18 @@ namespace ofxAzureKinect
 		try
 		{
 			transformedColorImg = k4a::image::create(K4A_IMAGE_FORMAT_COLOR_BGRA32,
-				depthDims.x, depthDims.y,
-				depthDims.x * 4 * static_cast<int>(sizeof(uint8_t)));
+													 depthDims.x, depthDims.y,
+													 depthDims.x * 4 * static_cast<int>(sizeof(uint8_t)));
 
 			this->transformation.color_image_to_depth_camera(depthImg, colorImg, &transformedColorImg);
 		}
-		catch (const k4a::error& e)
+		catch (const k4a::error &e)
 		{
 			ofLogError(__FUNCTION__) << e.what();
 			return false;
 		}
 
-		const auto transformedColorData = reinterpret_cast<uint8_t*>(transformedColorImg.get_buffer());
+		const auto transformedColorData = reinterpret_cast<uint8_t *>(transformedColorImg.get_buffer());
 
 		if (!this->colorInDepthPix.isAllocated())
 		{
@@ -815,7 +805,7 @@ namespace ofxAzureKinect
 		}
 
 		this->colorInDepthPix.setFromPixels(transformedColorData, depthDims.x, depthDims.y, 4);
-		
+
 		ofLogVerbose(__FUNCTION__) << "Color in Depth " << depthDims.x << "x" << depthDims.y << " stride: " << transformedColorImg.get_stride_bytes() << ".";
 
 		transformedColorImg.reset();
@@ -838,87 +828,87 @@ namespace ofxAzureKinect
 		return this->bNewFrame;
 	}
 
-	const std::string& Device::getSerialNumber() const
+	const std::string &Device::getSerialNumber() const
 	{
 		return this->serialNumber;
 	}
 
-	const ofShortPixels& Device::getDepthPix() const
+	const ofShortPixels &Device::getDepthPix() const
 	{
 		return this->depthPix;
 	}
 
-	const ofTexture& Device::getDepthTex() const
+	const ofTexture &Device::getDepthTex() const
 	{
 		return this->depthTex;
 	}
 
-	const ofPixels& Device::getColorPix() const
+	const ofPixels &Device::getColorPix() const
 	{
 		return this->colorPix;
 	}
 
-	const ofTexture& Device::getColorTex() const
+	const ofTexture &Device::getColorTex() const
 	{
 		return this->colorTex;
 	}
 
-	const ofShortPixels& Device::getIrPix() const
+	const ofShortPixels &Device::getIrPix() const
 	{
 		return this->irPix;
 	}
 
-	const ofTexture& Device::getIrTex() const
+	const ofTexture &Device::getIrTex() const
 	{
 		return this->irTex;
 	}
 
-	const ofFloatPixels& Device::getDepthToWorldPix() const
+	const ofFloatPixels &Device::getDepthToWorldPix() const
 	{
 		return this->depthToWorldPix;
 	}
 
-	const ofTexture& Device::getDepthToWorldTex() const
+	const ofTexture &Device::getDepthToWorldTex() const
 	{
 		return this->depthToWorldTex;
 	}
 
-	const ofFloatPixels& Device::getColorToWorldPix() const
+	const ofFloatPixels &Device::getColorToWorldPix() const
 	{
 		return this->colorToWorldPix;
 	}
 
-	const ofTexture& Device::getColorToWorldTex() const
+	const ofTexture &Device::getColorToWorldTex() const
 	{
 		return this->colorToWorldTex;
 	}
 
-	const ofShortPixels& Device::getDepthInColorPix() const
+	const ofShortPixels &Device::getDepthInColorPix() const
 	{
 		return this->depthInColorPix;
 	}
 
-	const ofTexture& Device::getDepthInColorTex() const
+	const ofTexture &Device::getDepthInColorTex() const
 	{
 		return this->depthInColorTex;
 	}
 
-	const ofPixels& Device::getColorInDepthPix() const
+	const ofPixels &Device::getColorInDepthPix() const
 	{
 		return this->colorInDepthPix;
 	}
 
-	const ofTexture& Device::getColorInDepthTex() const
+	const ofTexture &Device::getColorInDepthTex() const
 	{
 		return this->colorInDepthTex;
 	}
 
-	const ofPixels& Device::getBodyIndexPix() const
+	const ofPixels &Device::getBodyIndexPix() const
 	{
 		return this->bodyIndexPix;
 	}
 
-	const ofTexture& Device::getBodyIndexTex() const
+	const ofTexture &Device::getBodyIndexTex() const
 	{
 		return this->bodyIndexTex;
 	}
@@ -928,18 +918,18 @@ namespace ofxAzureKinect
 		return this->bodySkeletons.size();
 	}
 
-	const std::vector<k4abt_skeleton_t>& Device::getBodySkeletons() const
+	const std::vector<k4abt_skeleton_t> &Device::getBodySkeletons() const
 	{
 		return this->bodySkeletons;
 	}
 
-	const std::vector<uint32_t>& Device::getBodyIDs() const
+	const std::vector<uint32_t> &Device::getBodyIDs() const
 	{
 		return this->bodyIDs;
 	}
 
-	const ofVbo& Device::getPointCloudVbo() const
+	const ofVbo &Device::getPointCloudVbo() const
 	{
 		return this->pointCloudVbo;
 	}
-}
+} // namespace ofxAzureKinect

@@ -38,6 +38,8 @@ namespace ofxAzureKinect
 
 		bool syncImages;
 
+		bool enableIMU;
+
 		DeviceSettings(int idx = 0);
 	};
 
@@ -52,7 +54,7 @@ namespace ofxAzureKinect
 		BodyTrackingSettings();
 	};
 
-	class Device 
+	class Device
 		: ofThread
 	{
 	public:
@@ -77,40 +79,40 @@ namespace ofxAzureKinect
 		bool isStreaming() const;
 		bool isFrameNew() const;
 
-		const std::string& getSerialNumber() const;
+		const std::string &getSerialNumber() const;
 
-		const ofShortPixels& getDepthPix() const;
-		const ofTexture& getDepthTex() const;
+		const ofShortPixels &getDepthPix() const;
+		const ofTexture &getDepthTex() const;
 
-		const ofPixels& getColorPix() const;
-		const ofTexture& getColorTex() const;
+		const ofPixels &getColorPix() const;
+		const ofTexture &getColorTex() const;
 
-		const ofShortPixels& getIrPix() const;
-		const ofTexture& getIrTex() const;
+		const ofShortPixels &getIrPix() const;
+		const ofTexture &getIrTex() const;
 
-		const ofFloatPixels& getDepthToWorldPix() const;
-		const ofTexture& getDepthToWorldTex() const;
+		const ofFloatPixels &getDepthToWorldPix() const;
+		const ofTexture &getDepthToWorldTex() const;
 
-		const ofFloatPixels& getColorToWorldPix() const;
-		const ofTexture& getColorToWorldTex() const;
+		const ofFloatPixels &getColorToWorldPix() const;
+		const ofTexture &getColorToWorldTex() const;
 
-		const ofShortPixels& getDepthInColorPix() const;
-		const ofTexture& getDepthInColorTex() const;
+		const ofShortPixels &getDepthInColorPix() const;
+		const ofTexture &getDepthInColorTex() const;
 
-		const ofPixels& getColorInDepthPix() const;
-		const ofTexture& getColorInDepthTex() const;
+		const ofPixels &getColorInDepthPix() const;
+		const ofTexture &getColorInDepthTex() const;
 
-		const ofPixels& getBodyIndexPix() const;
-		const ofTexture& getBodyIndexTex() const;
+		const ofPixels &getBodyIndexPix() const;
+		const ofTexture &getBodyIndexTex() const;
 
 		size_t getNumBodies() const;
-		const std::vector<k4abt_skeleton_t>& getBodySkeletons() const;
-		const std::vector<uint32_t>& getBodyIDs() const;
+		const std::vector<k4abt_skeleton_t> &getBodySkeletons() const;
+		const std::vector<uint32_t> &getBodyIDs() const;
 
-		const ofVbo& getPointCloudVbo() const;
+		const ofVbo &getPointCloudVbo() const;
 
 	public:
-		ofParameter<float> jointSmoothing{ "Joint Smoothing", 0.0f, 0.0f, 1.0f };
+		ofParameter<float> jointSmoothing{"Joint Smoothing", 0.0f, 0.0f, 1.0f};
 
 	protected:
 		void threadedFunction() override;
@@ -119,16 +121,16 @@ namespace ofxAzureKinect
 		void updatePixels();
 		void updateTextures();
 
-		void update(ofEventArgs& args);
+		void update(ofEventArgs &args);
 
 		bool setupDepthToWorldTable();
 		bool setupColorToWorldTable();
-		bool setupImageToWorldTable(k4a_calibration_type_t type, k4a::image& img);
+		bool setupImageToWorldTable(k4a_calibration_type_t type, k4a::image &img);
 
-		bool updatePointsCache(k4a::image& frameImg, k4a::image& tableImg);
+		bool updatePointsCache(k4a::image &frameImg, k4a::image &tableImg);
 
-		bool updateDepthInColorFrame(const k4a::image& depthImg, const k4a::image& colorImg);
-		bool updateColorInDepthFrame(const k4a::image& depthImg, const k4a::image& colorImg);
+		bool updateDepthInColorFrame(const k4a::image &depthImg, const k4a::image &colorImg);
+		bool updateColorInDepthFrame(const k4a::image &depthImg, const k4a::image &colorImg);
 
 	private:
 		int index;
@@ -159,6 +161,9 @@ namespace ofxAzureKinect
 		k4abt_tracker_t bodyTracker;
 
 		tjhandle jpegDecompressor;
+
+		bool enableIMU = false;
+		void startIMU();
 
 		ofShortPixels depthPix;
 		ofTexture depthTex;
@@ -195,4 +200,4 @@ namespace ofxAzureKinect
 
 		ofEventListeners eventListeners;
 	};
-}
+} // namespace ofxAzureKinect
