@@ -15,6 +15,7 @@
 #include "ofVectorMath.h"
 
 #include "Types.h"
+#include "Record.h"
 
 namespace ofxAzureKinect
 {
@@ -113,6 +114,8 @@ namespace ofxAzureKinect
 
 	public:
 		ofParameter<float> jointSmoothing{"Joint Smoothing", 0.0f, 0.0f, 1.0f};
+		ofParameter<float> bRecord{"bRecord", false};
+		float get_recording_timer_delay();
 
 	protected:
 		void threadedFunction() override;
@@ -199,5 +202,8 @@ namespace ofxAzureKinect
 		ofVbo pointCloudVbo;
 
 		ofEventListeners eventListeners;
+
+		Record *recording;
+		void handle_recording(bool val);
 	};
 } // namespace ofxAzureKinect

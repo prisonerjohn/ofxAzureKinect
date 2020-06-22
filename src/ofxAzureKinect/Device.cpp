@@ -140,6 +140,11 @@ namespace ofxAzureKinect
 			}));
 		}
 
+		// Add Recording Listener
+		this->eventListeners.push(this->bRecord.newListener([this](bool) {
+			handle_recording(this->bRecord);
+		}));
+
 		ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " with serial number " << this->serialNumber << ".";
 
 		return true;
@@ -485,6 +490,13 @@ namespace ofxAzureKinect
 			// TODO: Fix this for non-BGRA formats, maybe always keep a BGRA k4a::image around.
 			this->updateDepthInColorFrame(depthImg, colorImg);
 			this->updateColorInDepthFrame(depthImg, colorImg);
+		}
+
+		// Do any recording before releaseing the capture
+		if (bRecord)
+		{
+			k4a_capture_t capture_handle = capture.handle();
+			recording->record(&capture_handle);
 		}
 
 		// Release images.
@@ -931,5 +943,27 @@ namespace ofxAzureKinect
 	const ofVbo &Device::getPointCloudVbo() const
 	{
 		return this->pointCloudVbo;
+	}
+
+		void Device::handle_recording(bool val)
+	{
+		if (val)
+		{
+			recording = new Record();
+			recording->setup(device.handle(), this->config, enableIMU);
+			recording->start();
+		}
+		else
+		{
+			recording->stop();
+		}
+	}
+
+	float Device::get_recording_timer_delay()
+	{
+		if (recording != nullptr)
+			return recording->get_timer_delay();
+		else
+			return -1;
 	}
 } // namespace ofxAzureKinect
