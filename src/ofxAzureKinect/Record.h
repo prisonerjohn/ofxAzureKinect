@@ -5,10 +5,6 @@
 
 #include "ofMain.h"
 
-// BUG: Playback is too fast ... maybe frames are dropping and not being recorded?
-// Duration seems to be correct, but actual playback is 2X speed (10 sec recording playsback in 5sec)
-// syncImages doesn't seem to have an effect
-
 namespace ofxAzureKinect
 {
 	class Record

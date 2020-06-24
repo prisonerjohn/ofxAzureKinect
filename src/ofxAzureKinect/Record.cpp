@@ -94,7 +94,7 @@ namespace ofxAzureKinect
 				if (recording_imu_enabled)
 				{
 					// Record IMU IMU data
-					record_imu(); //device, recording);
+					record_imu();
 				}
 
 				// Indicate that we are recording
