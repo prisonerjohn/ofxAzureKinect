@@ -16,6 +16,7 @@
 
 #include "Types.h"
 #include "Record.h"
+#include "Playback.h"
 
 namespace ofxAzureKinect
 {
@@ -65,6 +66,7 @@ namespace ofxAzureKinect
 		Device();
 		~Device();
 
+		bool open(string filename);
 		bool open(int idx = 0);
 		bool open(DeviceSettings settings);
 		bool open(DeviceSettings settings, BodyTrackingSettings bodyTrackingSettings);
@@ -114,8 +116,12 @@ namespace ofxAzureKinect
 
 	public:
 		ofParameter<float> jointSmoothing{"Joint Smoothing", 0.0f, 0.0f, 1.0f};
-		ofParameter<float> bRecord{"bRecord", false};
+		ofParameter<bool> bRecord{"bRecord", false};
 		float get_recording_timer_delay();
+		ofParameter<bool> play{"play", false};
+		ofParameter<bool> pause{"pause", false};
+		ofParameter<bool> stop{"stop", false};
+		ofParameter<float> seek{"Seek",0.0f, 0.0f, 1.0f};
 
 	protected:
 		void threadedFunction() override;
@@ -139,6 +145,7 @@ namespace ofxAzureKinect
 		int index;
 		bool bOpen;
 		bool bStreaming;
+		bool bPlayback;
 
 		bool bUpdateColor;
 		bool bUpdateIr;
@@ -165,6 +172,7 @@ namespace ofxAzureKinect
 
 		tjhandle jpegDecompressor;
 
+		k4a_imu_sample_t imu_sample;
 		bool enableIMU = false;
 		void startIMU();
 
@@ -205,5 +213,12 @@ namespace ofxAzureKinect
 
 		Record *recording;
 		void handle_recording(bool val);
+
+		Playback *playback;
+		void listener_playback_play(bool val);
+		void listener_playback_pause(bool val);
+		void listener_playback_stop(bool val);
+		void listener_playback_seek(float val);
+
 	};
 } // namespace ofxAzureKinect

@@ -33,6 +33,50 @@ namespace ofxAzureKinect
 		tjDestroy(jpegDecompressor);
 	}
 
+	bool Device::open(string filename)
+	{
+		bPlayback = true;
+		playback = new Playback();
+
+		if (playback->load_file(filename))
+		{
+			k4a_record_configuration_t playback_config = playback->get_device_settings();
+
+			this->config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+			this->config.depth_mode = playback_config.depth_mode;
+			this->config.color_format = playback_config.color_format;
+			this->config.color_resolution = playback_config.color_resolution;
+			this->config.camera_fps = playback_config.camera_fps;
+			this->enableIMU = playback_config.imu_track_enabled;
+
+			this->serialNumber = playback->get_serial_number();
+			this->bUpdateColor = playback_config.color_track_enabled;
+			this->bUpdateIr = playback_config.ir_track_enabled;
+			this->bUpdateWorld = playback_config.depth_track_enabled;
+			this->bUpdateVbo = false; //bUpdateWorld;
+
+			// Add Playback Listeners
+			this->eventListeners.push(this->play.newListener([this](bool) {
+				listener_playback_play(this->play);
+			}));
+			this->eventListeners.push(this->pause.newListener([this](bool) {
+				listener_playback_pause(this->pause);
+			}));
+			this->eventListeners.push(this->stop.newListener([this](bool) {
+				listener_playback_stop(this->stop);
+			}));
+			this->eventListeners.push(this->seek.newListener([this](bool) {
+				listener_playback_seek(this->seek);
+			}));
+
+			ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " with serial number " << this->serialNumber << ".";
+
+			bOpen = true;
+			return true;
+		}
+		return false;
+	}
+
 	bool Device::open(int idx)
 	{
 		return this->open(DeviceSettings(idx), BodyTrackingSettings());
@@ -155,15 +199,22 @@ namespace ofxAzureKinect
 		if (!this->bOpen)
 			return false;
 
-		// Start IMU is cameras are enabled
-		if (this->enableIMU)
+		if (bPlayback)
 		{
-			k4a_device_stop_imu(device.handle());
+			this->stopCameras();
 		}
+		else
+		{
+			// Stop IMU if cameras are enabled
+			if (this->enableIMU)
+			{
+				k4a_device_stop_imu(device.handle());
+			}
 
-		this->stopCameras();
+			this->stopCameras();
 
-		this->device.close();
+			this->device.close();
+		}
 
 		this->eventListeners.unsubscribeAll();
 
@@ -183,14 +234,31 @@ namespace ofxAzureKinect
 		}
 
 		// Get calibration.
-		try
+		if (bPlayback)
 		{
-			this->calibration = this->device.get_calibration(this->config.depth_mode, this->config.color_resolution);
+			auto calibration_handle = playback->get_calibration();
+			this->calibration.depth_camera_calibration = calibration_handle.depth_camera_calibration;
+			this->calibration.color_camera_calibration = calibration_handle.color_camera_calibration;
+			this->calibration.depth_mode = calibration_handle.depth_mode;
+			this->calibration.color_resolution = calibration_handle.color_resolution;
+
+			for (int i = 0; i < 4; i++)
+			{
+				for (int j = 0; j < 4; j++)
+					this->calibration.extrinsics[i][j] = calibration_handle.extrinsics[i][j];
+			}
 		}
-		catch (const k4a::error &e)
+		else
 		{
-			ofLogError(__FUNCTION__) << e.what();
-			return false;
+			try
+			{
+				this->calibration = this->device.get_calibration(this->config.depth_mode, this->config.color_resolution);
+			}
+			catch (const k4a::error &e)
+			{
+				ofLogError(__FUNCTION__) << e.what();
+				return false;
+			}
 		}
 
 		if (this->bUpdateColor)
@@ -235,20 +303,27 @@ namespace ofxAzureKinect
 		}
 
 		// Start cameras.
-		try
+		if (bPlayback)
 		{
-			this->device.start_cameras(&this->config);
+			playback->play();
 		}
-		catch (const k4a::error &e)
+		else
 		{
-			ofLogError(__FUNCTION__) << e.what();
-			return false;
-		}
+			try
+			{
+				this->device.start_cameras(&this->config);
+			}
+			catch (const k4a::error &e)
+			{
+				ofLogError(__FUNCTION__) << e.what();
+				return false;
+			}
 
-		// Can only start the IMU if cameras are enabled
-		if (this->enableIMU)
-		{
-			k4a_device_start_imu(device.handle());
+			// Can only start the IMU if cameras are enabled
+			if (this->enableIMU)
+			{
+				k4a_device_start_imu(device.handle());
+			}
 		}
 
 		this->startThread();
@@ -280,7 +355,14 @@ namespace ofxAzureKinect
 			this->bodyTracker = nullptr;
 		}
 
-		this->device.stop_cameras();
+		if (bPlayback)
+		{
+			playback->close();
+		}
+		else
+		{
+			this->device.stop_cameras();
+		}
 
 		this->bStreaming = false;
 
@@ -329,18 +411,47 @@ namespace ofxAzureKinect
 	void Device::updatePixels()
 	{
 		// Get a capture.
-		try
+		if (bPlayback)
 		{
-			if (!this->device.get_capture(&this->capture, std::chrono::milliseconds(TIMEOUT_IN_MS)))
+			if (playback->is_playing())
 			{
-				ofLogWarning(__FUNCTION__) << "Timed out waiting for a capture for device " << this->index << "::" << this->serialNumber << ".";
+				capture = k4a::capture(playback->get_next_capture());
+				if (enableIMU)
+				{
+					imu_sample = playback->get_next_imu_sample();
+					// printf(" | Accelerometer temperature:%.2f x:%.4f y:%.4f z: %.4f\n",
+					// 	   imu_sample.temperature,
+					// 	   imu_sample.acc_sample.xyz.x,
+					// 	   imu_sample.acc_sample.xyz.y,
+					// 	   imu_sample.acc_sample.xyz.z);
+				}
+			}
+			else if (playback->is_paused())
+			{
+				playback->seek();
+				capture = k4a::capture(playback->get_next_capture());
+			}
+			else
+			{
+				// if we are stopped, just return
 				return;
 			}
 		}
-		catch (const k4a::error &e)
+		else
 		{
-			ofLogError(__FUNCTION__) << e.what();
-			return;
+			try
+			{
+				if (!this->device.get_capture(&this->capture, std::chrono::milliseconds(TIMEOUT_IN_MS)))
+				{
+					ofLogWarning(__FUNCTION__) << "Timed out waiting for a capture for device " << this->index << "::" << this->serialNumber << ".";
+					return;
+				}
+			}
+			catch (const k4a::error &e)
+			{
+				ofLogError(__FUNCTION__) << e.what();
+				return;
+			}
 		}
 
 		// Probe for a depth16 image.
@@ -477,7 +588,7 @@ namespace ofxAzureKinect
 		{
 			if (this->bUpdateColor)
 			{
-				this->updatePointsCache(colorImg, this->colorToWorldImg);
+				this->updatePointsCache(depthImg, this->colorToWorldImg);
 			}
 			else
 			{
@@ -945,7 +1056,7 @@ namespace ofxAzureKinect
 		return this->pointCloudVbo;
 	}
 
-		void Device::handle_recording(bool val)
+	void Device::handle_recording(bool val)
 	{
 		if (val)
 		{
@@ -966,4 +1077,22 @@ namespace ofxAzureKinect
 		else
 			return -1;
 	}
+
+	void Device::listener_playback_play(bool val)
+	{
+		playback->play();
+	}
+	void Device::listener_playback_pause(bool val)
+	{
+		playback->pause();
+	}
+	void Device::listener_playback_stop(bool val)
+	{
+		playback->stop();
+	}
+	void Device::listener_playback_seek(float val)
+	{
+		playback->seek(val);
+	}
+
 } // namespace ofxAzureKinect
