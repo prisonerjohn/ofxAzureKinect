@@ -53,7 +53,7 @@ namespace ofxAzureKinect
 			this->bUpdateColor = playback_config.color_track_enabled;
 			this->bUpdateIr = playback_config.ir_track_enabled;
 			this->bUpdateWorld = playback_config.depth_track_enabled;
-			this->bUpdateVbo = false; //bUpdateWorld;
+			this->bUpdateVbo = playback_config.depth_track_enabled;
 
 			// Add Playback Listeners
 			this->eventListeners.push(this->play.newListener([this](bool) {
@@ -75,6 +75,21 @@ namespace ofxAzureKinect
 			return true;
 		}
 		return false;
+	}
+
+	bool Device::open(string filename, BodyTrackingSettings bodyTrackingSettings)
+	{
+		this->trackerConfig.sensor_orientation = bodyTrackingSettings.sensorOrientation;
+		this->trackerConfig.gpu_device_id = bodyTrackingSettings.gpuDeviceID;
+
+		this->bUpdateBodies = bodyTrackingSettings.updateBodies;
+		if (this->bUpdateBodies)
+		{
+			this->eventListeners.push(this->jointSmoothing.newListener([this](float &) {
+				k4abt_tracker_set_temporal_smoothing(this->bodyTracker, this->jointSmoothing);
+			}));
+		}
+		return open(filename);
 	}
 
 	bool Device::open(int idx)
@@ -588,7 +603,7 @@ namespace ofxAzureKinect
 		{
 			if (this->bUpdateColor)
 			{
-				this->updatePointsCache(depthImg, this->colorToWorldImg);
+				this->updatePointsCache(depthImg, this->depthToWorldImg);//(colorImg, this->colorToWorldImg);
 			}
 			else
 			{

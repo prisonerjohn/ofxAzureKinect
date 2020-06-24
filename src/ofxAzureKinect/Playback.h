@@ -7,9 +7,6 @@
 
 #include "ofMain.h"
 
-// TO DO:
-// 		Add Event Listeners to play, pause, seek
-//		Fix Playback open and close in Device for
 
 namespace ofxAzureKinect
 {

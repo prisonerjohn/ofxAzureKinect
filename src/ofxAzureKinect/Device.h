@@ -67,6 +67,7 @@ namespace ofxAzureKinect
 		~Device();
 
 		bool open(string filename);
+		bool open(string filename, BodyTrackingSettings bodyTrackingSettings);
 		bool open(int idx = 0);
 		bool open(DeviceSettings settings);
 		bool open(DeviceSettings settings, BodyTrackingSettings bodyTrackingSettings);
