@@ -54,6 +54,12 @@ void ofApp::draw()
     }
 
     ofDrawBitmapStringHighlight(ofToString(ofGetFrameRate(), 2) + " FPS", 10, 20);
+
+    stringstream ss;
+    ss << "Press SPACEBAR to start/stop a recording." << endl;
+    ss << "\tRecordings are saved to the bin/data/ directory." << endl;
+    ss << "Press 'f' to toggle fullscreen.";
+    ofDrawBitmapStringHighlight(ss.str(), 10, ofGetHeight() - 50);
 }
 
 //--------------------------------------------------------------
