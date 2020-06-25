@@ -396,6 +396,7 @@ namespace ofxAzureKinect
 
 		if (bPlayback)
 		{
+			playback->stop();
 			playback->close();
 		}
 		else
