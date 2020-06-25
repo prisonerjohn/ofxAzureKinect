@@ -104,6 +104,7 @@ namespace ofxAzureKinect
 
 	void Playback::close()
 	{
+		status = STOPPED;
 		k4a_playback_close(playback);
 	}
 
