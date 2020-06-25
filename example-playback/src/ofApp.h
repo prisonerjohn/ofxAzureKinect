@@ -27,9 +27,7 @@ class ofApp : public ofBaseApp{
 
 		ofxAzureKinect::Device device;
 
-		// ofxAzureKinect::Playback playback;
 		string filename;
-		
 		bool play = false;
 		float play_head = 0;
 };
