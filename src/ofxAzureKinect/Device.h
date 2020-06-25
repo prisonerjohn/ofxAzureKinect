@@ -17,6 +17,7 @@
 #include "Types.h"
 #include "Record.h"
 #include "Playback.h"
+#include "BodyTracker.h"
 
 namespace ofxAzureKinect
 {
@@ -115,6 +116,8 @@ namespace ofxAzureKinect
 
 		const ofVbo &getPointCloudVbo() const;
 
+		BodyTracker *get_body_tracker() { return &tracker; }
+
 	public:
 		ofParameter<float> jointSmoothing{"Joint Smoothing", 0.0f, 0.0f, 1.0f};
 		ofParameter<bool> bRecord{"bRecord", false};
@@ -122,7 +125,7 @@ namespace ofxAzureKinect
 		ofParameter<bool> play{"play", false};
 		ofParameter<bool> pause{"pause", false};
 		ofParameter<bool> stop{"stop", false};
-		ofParameter<float> seek{"Seek",0.0f, 0.0f, 1.0f};
+		ofParameter<float> seek{"Seek", 0.0f, 0.0f, 1.0f};
 
 	protected:
 		void threadedFunction() override;
@@ -212,6 +215,8 @@ namespace ofxAzureKinect
 
 		ofEventListeners eventListeners;
 
+		BodyTracker tracker;
+
 		Record *recording;
 		void handle_recording(bool val);
 
@@ -220,6 +225,5 @@ namespace ofxAzureKinect
 		void listener_playback_pause(bool val);
 		void listener_playback_stop(bool val);
 		void listener_playback_seek(float val);
-
 	};
 } // namespace ofxAzureKinect

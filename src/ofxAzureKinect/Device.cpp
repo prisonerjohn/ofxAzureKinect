@@ -79,17 +79,41 @@ namespace ofxAzureKinect
 
 	bool Device::open(string filename, BodyTrackingSettings bodyTrackingSettings)
 	{
-		this->trackerConfig.sensor_orientation = bodyTrackingSettings.sensorOrientation;
-		this->trackerConfig.gpu_device_id = bodyTrackingSettings.gpuDeviceID;
-
-		this->bUpdateBodies = bodyTrackingSettings.updateBodies;
-		if (this->bUpdateBodies)
+		bool result = open(filename);
+		
+		if (result)
 		{
-			this->eventListeners.push(this->jointSmoothing.newListener([this](float &) {
-				k4abt_tracker_set_temporal_smoothing(this->bodyTracker, this->jointSmoothing);
-			}));
+			this->bUpdateBodies = bodyTrackingSettings.updateBodies;
+
+			// Setup Body Tracking Config
+			this->trackerConfig.sensor_orientation = bodyTrackingSettings.sensorOrientation;
+			this->trackerConfig.gpu_device_id = bodyTrackingSettings.gpuDeviceID;
+
+			// Setup Device Calibration
+			auto calibration_handle = playback->get_calibration();
+			this->calibration.depth_camera_calibration = calibration_handle.depth_camera_calibration;
+			this->calibration.color_camera_calibration = calibration_handle.color_camera_calibration;
+			this->calibration.depth_mode = calibration_handle.depth_mode;
+			this->calibration.color_resolution = calibration_handle.color_resolution;
+			for (int i = 0; i < 4; i++)
+			{
+				for (int j = 0; j < 4; j++)
+					this->calibration.extrinsics[i][j] = calibration_handle.extrinsics[i][j];
+			}
+
+			// Create Body Tracker
+			tracker = BodyTracker(calibration, trackerConfig);
+
+			// Add Body Tracking Listeners
+			if (this->bUpdateBodies)
+			{
+				this->eventListeners.push(this->jointSmoothing.newListener([this](float &) {
+					k4abt_tracker_set_temporal_smoothing(this->bodyTracker, this->jointSmoothing);
+				}));
+			}
 		}
-		return open(filename);
+
+		return result;
 	}
 
 	bool Device::open(int idx)
@@ -554,56 +578,14 @@ namespace ofxAzureKinect
 
 		if (this->bUpdateBodies)
 		{
-			k4a_wait_result_t enqueueResult = k4abt_tracker_enqueue_capture(this->bodyTracker, this->capture.handle(), K4A_WAIT_INFINITE);
-			if (enqueueResult == K4A_WAIT_RESULT_FAILED)
-			{
-				ofLogError(__FUNCTION__) << "Failed adding capture to tracker process queue!";
-			}
-			else
-			{
-				k4abt_frame_t bodyFrame = nullptr;
-				k4a_wait_result_t popResult = k4abt_tracker_pop_result(this->bodyTracker, &bodyFrame, K4A_WAIT_INFINITE);
-				if (popResult == K4A_WAIT_RESULT_SUCCEEDED)
-				{
-					// Probe for a body index map image.
-					k4a::image bodyIndexImg = k4abt_frame_get_body_index_map(bodyFrame);
-					const auto bodyIndexSize = glm::ivec2(bodyIndexImg.get_width_pixels(), bodyIndexImg.get_height_pixels());
-					if (!this->bodyIndexPix.isAllocated())
-					{
-						this->bodyIndexPix.allocate(bodyIndexSize.x, bodyIndexSize.y, 1);
-					}
-
-					const auto bodyIndexData = reinterpret_cast<uint8_t *>(bodyIndexImg.get_buffer());
-					this->bodyIndexPix.setFromPixels(bodyIndexData, bodyIndexSize.x, bodyIndexSize.y, 1);
-
-					ofLogVerbose(__FUNCTION__) << "Capture BodyIndex " << bodyIndexSize.x << "x" << bodyIndexSize.y << " stride: " << bodyIndexImg.get_stride_bytes() << ".";
-					bodyIndexImg.reset();
-
-					size_t numBodies = k4abt_frame_get_num_bodies(bodyFrame);
-					ofLogVerbose(__FUNCTION__) << numBodies << " bodies found!";
-
-					this->bodySkeletons.resize(numBodies);
-					this->bodyIDs.resize(numBodies);
-					for (size_t i = 0; i < numBodies; i++)
-					{
-						k4abt_skeleton_t skeleton;
-						k4abt_frame_get_body_skeleton(bodyFrame, i, &skeleton);
-						this->bodySkeletons[i] = skeleton;
-						uint32_t id = k4abt_frame_get_body_id(bodyFrame, i);
-						this->bodyIDs[i] = id;
-					}
-
-					// Release body frame once we're finished.
-					k4abt_frame_release(bodyFrame);
-				}
-			}
+			tracker.update(capture.handle());
 		}
 
 		if (this->bUpdateVbo)
 		{
 			if (this->bUpdateColor)
 			{
-				this->updatePointsCache(depthImg, this->depthToWorldImg);//(colorImg, this->colorToWorldImg);
+				this->updatePointsCache(depthImg, this->depthToWorldImg); //(colorImg, this->colorToWorldImg);
 			}
 			else
 			{
@@ -618,7 +600,7 @@ namespace ofxAzureKinect
 			this->updateColorInDepthFrame(depthImg, colorImg);
 		}
 
-		// Do any recording before releaseing the capture
+		// Do any recording before releasing the capture
 		if (bRecord)
 		{
 			k4a_capture_t capture_handle = capture.handle();
@@ -690,13 +672,7 @@ namespace ofxAzureKinect
 
 		if (this->bUpdateBodies)
 		{
-			if (!this->bodyIndexTex.isAllocated())
-			{
-				this->bodyIndexTex.allocate(this->bodyIndexPix);
-				this->bodyIndexTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
-			}
-
-			this->bodyIndexTex.loadData(this->bodyIndexPix);
+			tracker.update_texture();
 		}
 
 		if (this->bUpdateVbo)
@@ -1043,27 +1019,32 @@ namespace ofxAzureKinect
 
 	const ofPixels &Device::getBodyIndexPix() const
 	{
-		return this->bodyIndexPix;
+		return tracker.getBodyIndexPix();
+		// return this->bodyIndexPix;
 	}
 
 	const ofTexture &Device::getBodyIndexTex() const
 	{
-		return this->bodyIndexTex;
+		return tracker.getBodyIndexTex();
+		// return this->bodyIndexTex;
 	}
 
 	size_t Device::getNumBodies() const
 	{
-		return this->bodySkeletons.size();
+		return tracker.getNumBodies();
+		// return this->bodySkeletons.size();
 	}
 
 	const std::vector<k4abt_skeleton_t> &Device::getBodySkeletons() const
 	{
-		return this->bodySkeletons;
+		return tracker.getBodySkeletons();
+		// return this->bodySkeletons;
 	}
 
 	const std::vector<uint32_t> &Device::getBodyIDs() const
 	{
-		return this->bodyIDs;
+		return tracker.getBodyIDs();
+		// return this->bodyIDs;
 	}
 
 	const ofVbo &Device::getPointCloudVbo() const
