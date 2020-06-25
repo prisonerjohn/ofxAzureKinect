@@ -46,19 +46,19 @@ namespace ofxAzureKinect
 				ofLogVerbose(__FUNCTION__) << num_bodies << " bodies found!";
 
 				// Update Found Skeletons
-				this->bodySkeletons.resize(num_bodies);
+				this->skeletons.resize(num_bodies);
 				this->bodyIDs.resize(num_bodies);
-				skeletonMeshes.clear();
+				skeleton_meshes.clear();
 				for (size_t i = 0; i < num_bodies; i++)
 				{
 					k4abt_skeleton_t skeleton;
 					k4abt_frame_get_body_skeleton(bodyFrame, i, &skeleton);
-					this->bodySkeletons[i] = skeleton;
+					this->skeletons[i] = skeleton;
 					uint32_t id = k4abt_frame_get_body_id(bodyFrame, i);
 					this->bodyIDs[i] = id;
 
-					skeletonMeshes.push_back(new ofVboMesh());
-					skeletonMeshes[skeletonMeshes.size() - 1]->setMode(OF_PRIMITIVE_LINES);
+					skeleton_meshes.push_back(new ofVboMesh());
+					skeleton_meshes[skeleton_meshes.size() - 1]->setMode(OF_PRIMITIVE_LINES);
 				}
 
 				// Release body frame once we're finished.
@@ -75,6 +75,17 @@ namespace ofxAzureKinect
 			this->bodyIndexTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 		}
 		this->bodyIndexTex.loadData(this->bodyIndexPix);
+	}
+
+	void BodyTracker::set_joint_smoothing(float val)
+	{
+		joint_smoothing = val;
+		k4abt_tracker_set_temporal_smoothing(tracker, joint_smoothing);
+	}
+
+	float BodyTracker::get_joint_smoothing()
+	{
+		return joint_smoothing;
 	}
 
 	// The value for each pixel represents which body the pixel belongs to.
@@ -136,7 +147,7 @@ namespace ofxAzureKinect
 		}
 		ofPushStyle();
 
-		auto skeleton = bodySkeletons[id];
+		auto skeleton = skeletons[id];
 		// Draw Joints
 		for (int i = 0; i < K4ABT_JOINT_COUNT; ++i)
 		{
@@ -161,7 +172,7 @@ namespace ofxAzureKinect
 		}
 
 		// Draw Bones
-		auto &vertices = skeletonMeshes[id]->getVertices();
+		auto &vertices = skeleton_meshes[id]->getVertices();
 		vertices.resize(50);
 
 		int vdx = 0;
@@ -248,7 +259,7 @@ namespace ofxAzureKinect
 		vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_WRIST_RIGHT].position);
 
 		ofSetColor(200);
-		skeletonMeshes[id]->draw();
+		skeleton_meshes[id]->draw();
 
 		ofPopStyle();
 	}
@@ -276,29 +287,29 @@ namespace ofxAzureKinect
 		this->pointsVbo.setVertexData(verts.data(), verts.size(), GL_STATIC_DRAW);
 	}
 
-	const ofPixels &BodyTracker::getBodyIndexPix() const
+	size_t BodyTracker::get_num_bodies() const
 	{
-		return this->bodyIndexPix;
+		return num_bodies;
 	}
 
-	const ofTexture &BodyTracker::getBodyIndexTex() const
+	const vector<k4abt_skeleton_t> &BodyTracker::get_skeletons() const
 	{
-		return this->bodyIndexTex;
+		return skeletons;
 	}
 
-	size_t BodyTracker::getNumBodies() const
+	const k4abt_skeleton_t &BodyTracker::get_skeleton(int i) const
 	{
-		return this->bodySkeletons.size();
+		return skeletons[i];
 	}
 
-	const std::vector<k4abt_skeleton_t> &BodyTracker::getBodySkeletons() const
+	const ofPixels &BodyTracker::get_body_index_map_pix() const
 	{
-		return this->bodySkeletons;
+		return bodyIndexPix;
 	}
 
-	const std::vector<uint32_t> &BodyTracker::getBodyIDs() const
+	const ofTexture &BodyTracker::get_body_index_map_tex() const
 	{
-		return this->bodyIDs;
+		return bodyIndexTex;
 	}
 
 } // namespace ofxAzureKinect

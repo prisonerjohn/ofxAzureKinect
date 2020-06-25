@@ -104,13 +104,6 @@ namespace ofxAzureKinect
 			// Create Body Tracker
 			tracker = BodyTracker(calibration, trackerConfig);
 
-			// Add Body Tracking Listeners
-			if (this->bUpdateBodies)
-			{
-				this->eventListeners.push(this->jointSmoothing.newListener([this](float &) {
-					k4abt_tracker_set_temporal_smoothing(this->bodyTracker, this->jointSmoothing);
-				}));
-			}
 		}
 
 		return result;
@@ -216,12 +209,6 @@ namespace ofxAzureKinect
 		this->bUpdateVbo = deviceSettings.updateWorld && deviceSettings.updateVbo;
 
 		this->bUpdateBodies = bodyTrackingSettings.updateBodies;
-		if (this->bUpdateBodies)
-		{
-			this->eventListeners.push(this->jointSmoothing.newListener([this](float &) {
-				k4abt_tracker_set_temporal_smoothing(this->bodyTracker, this->jointSmoothing);
-			}));
-		}
 
 		// Add Recording Listener
 		this->eventListeners.push(this->bRecord.newListener([this](bool) {
@@ -1016,36 +1003,6 @@ namespace ofxAzureKinect
 	const ofTexture &Device::getColorInDepthTex() const
 	{
 		return this->colorInDepthTex;
-	}
-
-	const ofPixels &Device::getBodyIndexPix() const
-	{
-		return tracker.getBodyIndexPix();
-		// return this->bodyIndexPix;
-	}
-
-	const ofTexture &Device::getBodyIndexTex() const
-	{
-		return tracker.getBodyIndexTex();
-		// return this->bodyIndexTex;
-	}
-
-	size_t Device::getNumBodies() const
-	{
-		return tracker.getNumBodies();
-		// return this->bodySkeletons.size();
-	}
-
-	const std::vector<k4abt_skeleton_t> &Device::getBodySkeletons() const
-	{
-		return tracker.getBodySkeletons();
-		// return this->bodySkeletons;
-	}
-
-	const std::vector<uint32_t> &Device::getBodyIDs() const
-	{
-		return tracker.getBodyIDs();
-		// return this->bodyIDs;
 	}
 
 	const ofVbo &Device::getPointCloudVbo() const

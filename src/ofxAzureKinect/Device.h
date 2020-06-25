@@ -107,19 +107,11 @@ namespace ofxAzureKinect
 		const ofPixels &getColorInDepthPix() const;
 		const ofTexture &getColorInDepthTex() const;
 
-		const ofPixels &getBodyIndexPix() const;
-		const ofTexture &getBodyIndexTex() const;
-
-		size_t getNumBodies() const;
-		const std::vector<k4abt_skeleton_t> &getBodySkeletons() const;
-		const std::vector<uint32_t> &getBodyIDs() const;
-
 		const ofVbo &getPointCloudVbo() const;
 
 		BodyTracker *get_body_tracker() { return &tracker; }
 
 	public:
-		ofParameter<float> jointSmoothing{"Joint Smoothing", 0.0f, 0.0f, 1.0f};
 		ofParameter<bool> bRecord{"bRecord", false};
 		float get_recording_timer_delay();
 		ofParameter<bool> play{"play", false};
