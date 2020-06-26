@@ -210,6 +210,22 @@ namespace ofxAzureKinect
 
 		this->bUpdateBodies = bodyTrackingSettings.updateBodies;
 
+		if (bUpdateBodies){
+
+			try
+			{
+				this->calibration = this->device.get_calibration(this->config.depth_mode, this->config.color_resolution);
+			}
+			catch (const k4a::error &e)
+			{
+				ofLogError(__FUNCTION__) << e.what();
+				return false;
+			}
+
+			// Create Body Tracker
+			tracker = BodyTracker(calibration, trackerConfig);
+		}
+
 		// Add Recording Listener
 		this->eventListeners.push(this->bRecord.newListener([this](bool) {
 			handle_recording(this->bRecord);
