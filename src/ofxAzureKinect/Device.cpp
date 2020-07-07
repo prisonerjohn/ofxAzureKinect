@@ -84,8 +84,10 @@ namespace ofxAzureKinect
 			return false;
 		}
 
-		this->bOpen = true;
 		ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " / " << this->serialNumber << ".";
+		this->bOpen = true;
+
+		return true;
 	}
 
 	bool Device::open(const std::string& serialNumber)
@@ -132,8 +134,10 @@ namespace ofxAzureKinect
 			return false;
 		}
 
-		this->bOpen = true;
 		ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " / " << this->serialNumber << ".";
+		this->bOpen = true;
+
+		return true;
 	}
 
 	bool Device::close()
@@ -361,7 +365,7 @@ namespace ofxAzureKinect
 		}
 		else
 		{
-			ofLogWarning(__FUNCTION__) << "No Depth16 capture found!";
+			ofLogWarning(__FUNCTION__) << "No Depth16 capture found (" << ofGetFrameNum() << ")!";
 		}
 
 		k4a::image colorImg;
@@ -399,7 +403,7 @@ namespace ofxAzureKinect
 			}
 			else
 			{
-				ofLogWarning(__FUNCTION__) << "No Color capture found!";
+				ofLogWarning(__FUNCTION__) << "No Color capture found (" << ofGetFrameNum() << ")!";
 			}
 		}
 
@@ -423,7 +427,7 @@ namespace ofxAzureKinect
 			}
 			else
 			{
-				ofLogWarning(__FUNCTION__) << "No Ir16 capture found!";
+				ofLogWarning(__FUNCTION__) << "No Ir16 capture found (" << ofGetFrameNum() << ")!";
 			}
 		}
 
@@ -507,17 +511,20 @@ namespace ofxAzureKinect
 
 	void Device::updateTextures()
 	{
-		// Update the depth texture.
-		if (!this->depthTex.isAllocated())
+		if (this->depthPix.isAllocated())
 		{
-			this->depthTex.allocate(this->depthPix);
-			this->depthTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
+			// Update the depth texture.
+			if (!this->depthTex.isAllocated())
+			{
+				this->depthTex.allocate(this->depthPix);
+				this->depthTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
+			}
+
+			this->depthTex.loadData(this->depthPix);
+			ofLogVerbose(__FUNCTION__) << "Update Depth16 " << this->depthTex.getWidth() << "x" << this->depthTex.getHeight() << ".";
 		}
 
-		this->depthTex.loadData(this->depthPix);
-		ofLogVerbose(__FUNCTION__) << "Update Depth16 " << this->depthTex.getWidth() << "x" << this->depthTex.getHeight() << ".";
-
-		if (this->bUpdateColor)
+		if (this->bUpdateColor && this->colorPix.isAllocated())
 		{
 			// Update the color texture.
 			if (!this->colorTex.isAllocated())
@@ -537,11 +544,10 @@ namespace ofxAzureKinect
 			}
 
 			this->colorTex.loadData(this->colorPix);
-
 			ofLogVerbose(__FUNCTION__) << "Update Color " << this->colorTex.getWidth() << "x" << this->colorTex.getHeight() << ".";
 		}
 
-		if (this->bUpdateIr)
+		if (this->bUpdateIr && this->irPix.isAllocated())
 		{
 			// Update the IR16 image.
 			if (!this->irTex.isAllocated())
@@ -552,11 +558,10 @@ namespace ofxAzureKinect
 			}
 
 			this->irTex.loadData(this->irPix);
-
 			ofLogVerbose(__FUNCTION__) << "Update Ir16 " << this->irTex.getWidth() << "x" << this->irTex.getHeight() << ".";
 		}
 
-		if (this->bUpdateBodies)
+		if (this->bUpdateBodies && this->bodyIndexPix.isAllocated())
 		{
 			if (!this->bodyIndexTex.isAllocated())
 			{
@@ -575,27 +580,33 @@ namespace ofxAzureKinect
 
 		if (this->bUpdateColor && this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
 		{
-			if (this->depthInColorPix.isAllocated() && !this->depthInColorTex.isAllocated())
+			if (this->depthInColorPix.isAllocated())
 			{
-				this->depthInColorTex.allocate(this->depthInColorPix);
-				this->depthInColorTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
-			}
-
-			this->depthInColorTex.loadData(this->depthInColorPix);
-
-			if (this->colorInDepthPix.isAllocated() && !this->colorInDepthTex.isAllocated())
-			{
-				this->colorInDepthTex.allocate(this->colorInDepthPix);
-				this->colorInDepthTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
-				this->colorInDepthTex.bind();
+				if (!this->depthInColorTex.isAllocated())
 				{
-					glTexParameteri(this->colorInDepthTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
-					glTexParameteri(this->colorInDepthTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_B, GL_RED);
+					this->depthInColorTex.allocate(this->depthInColorPix);
+					this->depthInColorTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 				}
-				this->colorInDepthTex.unbind();
+
+				this->depthInColorTex.loadData(this->depthInColorPix);
 			}
 
-			this->colorInDepthTex.loadData(this->colorInDepthPix);
+			if (this->colorInDepthPix.isAllocated())
+			{
+				if (!this->colorInDepthTex.isAllocated())
+				{
+					this->colorInDepthTex.allocate(this->colorInDepthPix);
+					this->colorInDepthTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
+					this->colorInDepthTex.bind();
+					{
+						glTexParameteri(this->colorInDepthTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
+						glTexParameteri(this->colorInDepthTex.texData.textureTarget, GL_TEXTURE_SWIZZLE_B, GL_RED);
+					}
+					this->colorInDepthTex.unbind();
+				}
+
+				this->colorInDepthTex.loadData(this->colorInDepthPix);
+			}
 		}
 
 		// Update frame number.
