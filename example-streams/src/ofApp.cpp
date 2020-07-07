@@ -7,12 +7,12 @@ void ofApp::setup()
 
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
-	auto kinectSettings = ofxAzureKinect::DeviceSettings();
-	kinectSettings.syncImages = false;
-	kinectSettings.updateWorld = false;
-	if (this->kinectDevice.open(kinectSettings))
+	if (this->kinectDevice.open())
 	{
-		this->kinectDevice.startCameras();
+		auto kinectSettings = ofxAzureKinect::DeviceSettings();
+		kinectSettings.syncImages = false;
+		kinectSettings.updateWorld = false;
+		this->kinectDevice.startCameras(kinectSettings);
 	}
 }
 
@@ -25,7 +25,10 @@ void ofApp::exit()
 //--------------------------------------------------------------
 void ofApp::update()
 {
-
+	if (this->kinectDevice.isFrameNew())
+	{
+		this->kinectFps.newFrame();
+	}
 }
 
 //--------------------------------------------------------------
@@ -40,7 +43,11 @@ void ofApp::draw()
 		this->kinectDevice.getIrTex().draw(1280, 360, 360, 360);
 	}
 
-	ofDrawBitmapStringHighlight(ofToString(ofGetFrameRate(), 2) + " FPS", 10, 20);
+	std::ostringstream oss;
+	oss << std::fixed << std::setprecision(2)
+		<< "APP: " << ofGetFrameRate() << " FPS" << std::endl
+		<< "K4A: " << kinectFps.getFps() << " FPS";
+	ofDrawBitmapStringHighlight(oss.str(), 10, 20);
 }
 
 //--------------------------------------------------------------
