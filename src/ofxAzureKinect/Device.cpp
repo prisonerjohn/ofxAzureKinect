@@ -7,9 +7,7 @@ const int32_t TIMEOUT_IN_MS = 1000;
 namespace ofxAzureKinect
 {
 	DeviceSettings::DeviceSettings(int idx)
-		: deviceIndex(idx)
-		, deviceSerial("")
-		, depthMode(K4A_DEPTH_MODE_WFOV_2X2BINNED)
+		: depthMode(K4A_DEPTH_MODE_WFOV_2X2BINNED)
 		, colorResolution(K4A_COLOR_RESOLUTION_2160P)
 		, colorFormat(K4A_IMAGE_FORMAT_COLOR_BGRA32)
 		, cameraFps(K4A_FRAMES_PER_SECOND_30)

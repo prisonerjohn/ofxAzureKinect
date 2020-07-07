@@ -8,14 +8,14 @@ void ofApp::setup()
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
 	// Open Kinect.
-	auto kinectSettings = ofxAzureKinect::DeviceSettings();
-	kinectSettings.updateIr = false;
-	kinectSettings.updateColor = true;
-	kinectSettings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
-	kinectSettings.updateVbo = false;
-	if (this->kinectDevice.open(kinectSettings))
+	if (this->kinectDevice.open())
 	{
-		this->kinectDevice.startCameras();
+		auto kinectSettings = ofxAzureKinect::DeviceSettings();
+		kinectSettings.updateIr = false;
+		kinectSettings.updateColor = true;
+		kinectSettings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
+		kinectSettings.updateVbo = false;
+		this->kinectDevice.startCameras(kinectSettings);
 	}
 
 	// Load shader.

@@ -18,9 +18,9 @@ void ofApp::setup()
 	auto bodyTrackingSettings = ofxAzureKinect::BodyTrackingSettings();
 	//bodyTrackingSettings.processingMode = K4ABT_TRACKER_PROCESSING_MODE_CPU;
 	bodyTrackingSettings.updateBodies = true;
-	if (this->kinectDevice.open(deviceSettings, bodyTrackingSettings))
+	if (this->kinectDevice.open())
 	{
-		this->kinectDevice.startCameras();
+		this->kinectDevice.startCameras(deviceSettings, bodyTrackingSettings);
 	}
 
 	// Load shader.
