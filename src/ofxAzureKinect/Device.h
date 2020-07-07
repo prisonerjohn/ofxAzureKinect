@@ -62,12 +62,11 @@ namespace ofxAzureKinect
 		Device();
 		~Device();
 
-		bool open(int idx = 0);
-		bool open(DeviceSettings settings);
-		bool open(DeviceSettings settings, BodyTrackingSettings bodyTrackingSettings);
+		bool open(uint32_t idx = 0);
+		bool open(const std::string& serialNumber);
 		bool close();
 
-		bool startCameras();
+		bool startCameras(DeviceSettings deviceSettings = DeviceSettings(), BodyTrackingSettings bodyTrackingSettings = BodyTrackingSettings());
 		bool stopCameras();
 
 		bool isSyncInConnected() const;
@@ -134,6 +133,7 @@ namespace ofxAzureKinect
 		int index;
 		bool bOpen;
 		bool bStreaming;
+		bool bNewFrame;
 
 		bool bUpdateColor;
 		bool bUpdateIr;
@@ -144,8 +144,6 @@ namespace ofxAzureKinect
 		std::condition_variable condition;
 		uint64_t pixFrameNum;
 		uint64_t texFrameNum;
-
-		bool bNewFrame;
 
 		std::string serialNumber;
 

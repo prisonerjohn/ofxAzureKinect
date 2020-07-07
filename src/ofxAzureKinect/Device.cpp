@@ -40,6 +40,7 @@ namespace ofxAzureKinect
 		, texFrameNum(0)
 		, bOpen(false)
 		, bStreaming(false)
+		, bNewFrame(false)
 		, bUpdateColor(false)
 		, bUpdateIr(false)
 		, bUpdateBodies(false)
@@ -56,116 +57,83 @@ namespace ofxAzureKinect
 		tjDestroy(jpegDecompressor);
 	}
 
-	bool Device::open(int idx)
+	bool Device::open(uint32_t idx)
 	{
-		return this->open(DeviceSettings(idx), BodyTrackingSettings());
-	}
-
-	bool Device::open(DeviceSettings deviceSettings)
-	{
-		return this->open(deviceSettings, BodyTrackingSettings());
-	}
-
-	bool Device::open(DeviceSettings deviceSettings, BodyTrackingSettings bodyTrackingSettings)
-	{
-		this->config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-		this->config.depth_mode = deviceSettings.depthMode;
-		this->config.color_format = deviceSettings.colorFormat;
-		this->config.color_resolution = deviceSettings.colorResolution;
-		this->config.camera_fps = deviceSettings.cameraFps;
-		this->config.synchronized_images_only = deviceSettings.syncImages;
-
-		this->config.wired_sync_mode = deviceSettings.wiredSyncMode;
-		this->config.subordinate_delay_off_master_usec = deviceSettings.subordinateDelayUsec;
-
-		this->trackerConfig.sensor_orientation = bodyTrackingSettings.sensorOrientation;
-		this->trackerConfig.gpu_device_id = bodyTrackingSettings.gpuDeviceID;
-
 		if (this->bOpen)
 		{
-			ofLogWarning(__FUNCTION__) << "Device " << this->index << " already open!";
+			ofLogWarning(__FUNCTION__) << "Device " << this->index << " / " << this->serialNumber << " already open!";
 			return false;
 		}
 
-		if (deviceSettings.deviceSerial.empty())
+		// Load the device at the requested index.
+		try
 		{
-			// Simply load the device at the requested index.
+			// Open connection to the device.
+			this->device = k4a::device::open(idx);
+
+			// Get the device index and serial number.
+			this->index = idx;
+			this->serialNumber = this->device.get_serialnum();
+		}
+		catch (const k4a::error& e)
+		{
+			ofLogError(__FUNCTION__) << e.what();
+
+			this->device.close();
+
+			return false;
+		}
+
+		this->bOpen = true;
+		ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " / " << this->serialNumber << ".";
+	}
+
+	bool Device::open(const std::string& serialNumber)
+	{
+		if (this->bOpen)
+		{
+			ofLogWarning(__FUNCTION__) << "Device " << this->index << " / " << this->serialNumber << " already open!";
+			return false;
+		}
+
+		// Loop through devices and find the one with the requested serial.
+		bool deviceFound = false;
+		int numConnected = Device::getInstalledCount();
+		for (int i = 0; i < numConnected; ++i)
+		{
 			try
 			{
 				// Open connection to the device.
-				this->device = k4a::device::open(static_cast<uint32_t>(deviceSettings.deviceIndex));
+				this->device = k4a::device::open(static_cast<uint32_t>(i));
 
-				// Get the device serial number.
+				// Get the device serial number and check it.
 				this->serialNumber = this->device.get_serialnum();
+				if (this->serialNumber == serialNumber)
+				{
+					deviceFound = true;
+					this->index = i;
+					break;
+				}
+				else
+				{
+					this->device.close();
+				}
 			}
 			catch (const k4a::error& e)
 			{
-				ofLogError(__FUNCTION__) << e.what();
-
-				this->device.close();
-
-				return false;
+				// Don't worry about it; we just might be trying to access an already open device.
+				continue;
 			}
 		}
-		else
+
+		if (!deviceFound)
 		{
-			// Loop through devices and find the one with the requested serial.
-			bool deviceFound = false;
-			int numConnected = Device::getInstalledCount();
-			for (int i = 0; i < numConnected; ++i)
-			{
-				try
-				{
-					// Open connection to the device.
-					this->device = k4a::device::open(static_cast<uint32_t>(i));
-
-					// Get the device serial number and check it.
-					this->serialNumber = this->device.get_serialnum();
-					if (this->serialNumber == deviceSettings.deviceSerial)
-					{
-						deviceFound = true;
-						deviceSettings.deviceIndex = i;
-						break;
-					}
-					else
-					{
-						this->device.close();
-					}
-				}
-				catch (const k4a::error& e)
-				{
-					// Don't worry about it; we just might be trying to access an already open device.
-					continue;
-				}
-			}
-
-			if (!deviceFound)
-			{
-				ofLogError(__FUNCTION__) << "No device found with serial number " << deviceSettings.deviceSerial;
-				return false;
-			}
+			ofLogError(__FUNCTION__) << "No device found with serial number " << serialNumber;
+			return false;
 		}
 
-		this->index = deviceSettings.deviceIndex;
 		this->bOpen = true;
-
-		this->bUpdateColor = deviceSettings.updateColor;
-		this->bUpdateIr = deviceSettings.updateIr;
-		this->bUpdateWorld = deviceSettings.updateWorld;
-		this->bUpdateVbo = deviceSettings.updateWorld && deviceSettings.updateVbo;
-
-		this->bUpdateBodies = bodyTrackingSettings.updateBodies;
-		if (this->bUpdateBodies)
-		{
-			this->eventListeners.push(this->jointSmoothing.newListener([this](float &)
-			{
-				k4abt_tracker_set_temporal_smoothing(this->bodyTracker, this->jointSmoothing);
-			}));
-		}
-
-		ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " with serial number " << this->serialNumber << ".";
-
-		return true;
+		ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " / " << this->serialNumber << ".";
 	}
 
 	bool Device::close()
@@ -176,22 +144,43 @@ namespace ofxAzureKinect
 
 		this->device.close();
 
-		this->eventListeners.unsubscribeAll();
-
 		this->index = -1;
-		this->bOpen = false;
 		this->serialNumber = "";
+		this->bOpen = false;
 
 		return true;
 	}
 
-	bool Device::startCameras()
+	bool Device::startCameras(DeviceSettings deviceSettings, BodyTrackingSettings bodyTrackingSettings)
 	{
 		if (!this->bOpen)
 		{
 			ofLogError(__FUNCTION__) << "Open device before starting cameras!";
 			return false;
 		}
+
+		// Generate device config.
+		this->config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+		this->config.depth_mode = deviceSettings.depthMode;
+		this->config.color_format = deviceSettings.colorFormat;
+		this->config.color_resolution = deviceSettings.colorResolution;
+		this->config.camera_fps = deviceSettings.cameraFps;
+		this->config.synchronized_images_only = deviceSettings.syncImages;
+
+		this->config.wired_sync_mode = deviceSettings.wiredSyncMode;
+		this->config.subordinate_delay_off_master_usec = deviceSettings.subordinateDelayUsec;
+
+		// Generate tracker config.
+		this->trackerConfig.sensor_orientation = bodyTrackingSettings.sensorOrientation;
+		this->trackerConfig.gpu_device_id = bodyTrackingSettings.gpuDeviceID;
+
+		// Set update flags.
+		this->bUpdateColor = deviceSettings.updateColor;
+		this->bUpdateIr = deviceSettings.updateIr;
+		this->bUpdateWorld = deviceSettings.updateWorld;
+		this->bUpdateVbo = deviceSettings.updateWorld && deviceSettings.updateVbo;
+
+		this->bUpdateBodies = bodyTrackingSettings.updateBodies;
 
 		// Get calibration.
 		try
@@ -214,6 +203,12 @@ namespace ofxAzureKinect
 		{
 			// Create tracker.
 			k4abt_tracker_create(&this->calibration, this->trackerConfig, &this->bodyTracker);
+		
+			// Add joint smoothing parameter listener.
+			this->eventListeners.push(this->jointSmoothing.newListener([this](float &)
+			{
+				k4abt_tracker_set_temporal_smoothing(this->bodyTracker, this->jointSmoothing);
+			}));
 		}
 
 		if (this->bUpdateWorld)
@@ -273,6 +268,8 @@ namespace ofxAzureKinect
 		this->condition.notify_all();
 
 		ofRemoveListener(ofEvents().update, this, &Device::update);
+
+		this->eventListeners.unsubscribeAll();
 
 		this->depthToWorldImg.reset();
 		this->transformation.destroy();
