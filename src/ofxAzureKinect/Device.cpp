@@ -12,6 +12,7 @@ namespace ofxAzureKinect
 		, colorFormat(K4A_IMAGE_FORMAT_COLOR_BGRA32)
 		, cameraFps(K4A_FRAMES_PER_SECOND_30)
 		, wiredSyncMode(K4A_WIRED_SYNC_MODE_STANDALONE)
+		, depthDelayUsec(0)
 		, subordinateDelayUsec(0)
 		, updateColor(true)
 		, updateIr(true)
@@ -170,6 +171,7 @@ namespace ofxAzureKinect
 		this->config.synchronized_images_only = deviceSettings.syncImages;
 
 		this->config.wired_sync_mode = deviceSettings.wiredSyncMode;
+		this->config.depth_delay_off_color_usec = deviceSettings.depthDelayUsec;
 		this->config.subordinate_delay_off_master_usec = deviceSettings.subordinateDelayUsec;
 
 		// Generate tracker config.

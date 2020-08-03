@@ -26,6 +26,7 @@ namespace ofxAzureKinect
 		FramesPerSecond cameraFps;
 
 		WiredSyncMode wiredSyncMode;
+		uint32_t depthDelayUsec;
 		uint32_t subordinateDelayUsec;
 
 		bool updateColor;
