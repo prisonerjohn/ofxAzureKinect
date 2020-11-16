@@ -9,10 +9,10 @@ void ofApp::setup()
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
 	// The following will start all connected devices as standalone (no sync).
-	//this->setupStandalone();
+	this->setupStandalone();
 
 	// The following will assign sync to devices based on serial number.
-	this->setupMasterSubordinate();
+	//this->setupMasterSubordinate();
 
 	// Add FPS counter for each device.
 	this->fpsCounters.resize(this->kinectDevices.size());
@@ -30,13 +30,12 @@ void ofApp::setupStandalone()
 
 	for (int i = 0; i < numConnected; ++i)
 	{
-		kinectSettings.deviceIndex = i;
-
 		auto device = std::make_shared<ofxAzureKinect::Device>();
-		if (device->open(kinectSettings))
+		if (device->open(i))
 		{
+			device->startCameras(kinectSettings);
+
 			this->kinectDevices.push_back(device);
-			device->startCameras();
 		}
 	}
 }
@@ -54,27 +53,27 @@ void ofApp::setupMasterSubordinate()
 	kinectSettings.updateWorld = false;
 
 	// Open Master device.
-	kinectSettings.deviceSerial = serialMaster;
-	kinectSettings.wiredSyncMode = K4A_WIRED_SYNC_MODE_MASTER;
 	{
 		auto device = std::make_shared<ofxAzureKinect::Device>();
-		if (device->open(kinectSettings))
+		if (device->load(serialMaster))
 		{
+			kinectSettings.wiredSyncMode = K4A_WIRED_SYNC_MODE_MASTER;
+			device->startCameras(kinectSettings);
+
 			this->kinectDevices.push_back(device);
-			device->startCameras();
 		}
 	}
 
 	// Open Subordinate device.
-	kinectSettings.deviceSerial = serialSubordinate;
-	kinectSettings.wiredSyncMode = K4A_WIRED_SYNC_MODE_SUBORDINATE;
-	//kinectSettings.subordinateDelayUsec = 100;
 	{
 		auto device = std::make_shared<ofxAzureKinect::Device>();
-		if (device->open(kinectSettings))
+		if (device->load(serialSubordinate))
 		{
+			kinectSettings.wiredSyncMode = K4A_WIRED_SYNC_MODE_SUBORDINATE;
+			//kinectSettings.subordinateDelayUsec = 100;
+			device->startCameras(kinectSettings);
+
 			this->kinectDevices.push_back(device);
-			device->startCameras();
 		}
 	}
 }

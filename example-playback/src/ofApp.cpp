@@ -6,7 +6,7 @@ void ofApp::setup()
     // place a recording from k4arecorder or example-record in the data folder
     filename = ofToDataPath("output.mkv");
 
-    device.open(filename);
+    device.load(filename);
     device.startCameras();
 }
 

@@ -15,10 +15,12 @@ void ofApp::setup()
 	if (!streaming)
 	{
 		filename = ofToDataPath("output_2d_movements.mkv");
-		if (!kinectDevice.open(filename, bodyTrackingSettings))
+		if (!kinectDevice.load(filename))
 		{
 			exit();
 		}
+		// Start Playback or Streaming
+		kinectDevice.startCameras();
 	}
 	else
 	{
@@ -31,13 +33,13 @@ void ofApp::setup()
 		deviceSettings.updateWorld = true;
 		deviceSettings.updateVbo = false;
 
-		if (!kinectDevice.open(deviceSettings, bodyTrackingSettings))
+		if (!kinectDevice.open())
 		{
 			exit();
 		}
+		// Start Playback or Streaming
+		kinectDevice.startCameras(deviceSettings, bodyTrackingSettings);
 	}
-	// Start Playback or Streaming
-	kinectDevice.startCameras();
 }
 
 //--------------------------------------------------------------

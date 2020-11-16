@@ -100,7 +100,7 @@
 			<PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
 			<RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
 			<WarningLevel>Level3</WarningLevel>
-			<AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);src;..\..\..\addons\ofxAzureKinect\libs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\include;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Debug;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Release;..\..\..\addons\ofxAzureKinect\src;..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect;C:\Program Files\Azure Kinect SDK v1.3.0\sdk\include;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\include</AdditionalIncludeDirectories>
+			<AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);src;..\..\..\addons\ofxAzureKinect\libs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\include;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Debug;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Release;..\..\..\addons\ofxAzureKinect\src;..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect;C:\Program Files\Azure Kinect SDK v1.4.1\sdk\include;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\include</AdditionalIncludeDirectories>
 			<CompileAs>CompileAsCpp</CompileAs>
 			<ObjectFileName>$(IntDir)</ObjectFileName>
 		</ClCompile>
@@ -108,8 +108,8 @@
 			<GenerateDebugInformation>true</GenerateDebugInformation>
 			<SubSystem>Console</SubSystem>
 			<RandomizedBaseAddress>false</RandomizedBaseAddress>
-			<AdditionalDependencies>%(AdditionalDependencies);k4a.lib;k4abt.lib</AdditionalDependencies>
-			<AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);C:\Program Files\Azure Kinect SDK v1.3.0\sdk\windows-desktop\amd64\release\lib;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\windows-desktop\amd64\release\lib</AdditionalLibraryDirectories>
+			<AdditionalDependencies>%(AdditionalDependencies);k4a.lib;k4arecord.lib;k4abt.lib</AdditionalDependencies>
+			<AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);C:\Program Files\Azure Kinect SDK v1.4.1\sdk\windows-desktop\amd64\release\lib;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\windows-desktop\amd64\release\lib</AdditionalLibraryDirectories>
 		</Link>
 		<PostBuildEvent />
 	</ItemDefinitionGroup>
@@ -120,7 +120,7 @@
 			<PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
 			<RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
 			<WarningLevel>Level3</WarningLevel>
-			<AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);src;..\..\..\addons\ofxAzureKinect\libs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\include;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Debug;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Release;..\..\..\addons\ofxAzureKinect\src;..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect;C:\Program Files\Azure Kinect SDK v1.3.0\sdk\include;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\include</AdditionalIncludeDirectories>
+			<AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);src;..\..\..\addons\ofxAzureKinect\libs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\include;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Debug;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Release;..\..\..\addons\ofxAzureKinect\src;..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect;C:\Program Files\Azure Kinect SDK v1.4.1\sdk\include;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\include</AdditionalIncludeDirectories>
 			<CompileAs>CompileAsCpp</CompileAs>
 			<MultiProcessorCompilation>true</MultiProcessorCompilation>
 			<ObjectFileName>$(IntDir)</ObjectFileName>
@@ -129,8 +129,8 @@
 			<GenerateDebugInformation>true</GenerateDebugInformation>
 			<SubSystem>Console</SubSystem>
 			<RandomizedBaseAddress>false</RandomizedBaseAddress>
-			<AdditionalDependencies>%(AdditionalDependencies);turbojpeg-static.lib;k4a.lib;k4abt.lib</AdditionalDependencies>
-			<AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Debug;C:\Program Files\Azure Kinect SDK v1.3.0\sdk\windows-desktop\amd64\release\lib;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\windows-desktop\amd64\release\lib</AdditionalLibraryDirectories>
+			<AdditionalDependencies>%(AdditionalDependencies);turbojpeg-static.lib;k4a.lib;k4arecord.lib;k4abt.lib</AdditionalDependencies>
+			<AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Debug;C:\Program Files\Azure Kinect SDK v1.4.1\sdk\windows-desktop\amd64\release\lib;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\windows-desktop\amd64\release\lib</AdditionalLibraryDirectories>
 		</Link>
 		<PostBuildEvent />
 	</ItemDefinitionGroup>
@@ -140,7 +140,7 @@
 			<PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
 			<RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
 			<WarningLevel>Level3</WarningLevel>
-			<AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);src;..\..\..\addons\ofxAzureKinect\libs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\include;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Debug;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Release;..\..\..\addons\ofxAzureKinect\src;..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect;C:\Program Files\Azure Kinect SDK v1.3.0\sdk\include;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\include</AdditionalIncludeDirectories>
+			<AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);src;..\..\..\addons\ofxAzureKinect\libs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\include;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Debug;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Release;..\..\..\addons\ofxAzureKinect\src;..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect;C:\Program Files\Azure Kinect SDK v1.4.1\sdk\include;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\include</AdditionalIncludeDirectories>
 			<CompileAs>CompileAsCpp</CompileAs>
 			<MultiProcessorCompilation>true</MultiProcessorCompilation>
 			<ObjectFileName>$(IntDir)</ObjectFileName>
@@ -152,8 +152,8 @@
 			<OptimizeReferences>true</OptimizeReferences>
 			<EnableCOMDATFolding>true</EnableCOMDATFolding>
 			<RandomizedBaseAddress>false</RandomizedBaseAddress>
-			<AdditionalDependencies>%(AdditionalDependencies);k4a.lib;k4abt.lib</AdditionalDependencies>
-			<AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);C:\Program Files\Azure Kinect SDK v1.3.0\sdk\windows-desktop\amd64\release\lib;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\windows-desktop\amd64\release\lib</AdditionalLibraryDirectories>
+			<AdditionalDependencies>%(AdditionalDependencies);k4a.lib;k4arecord.lib;k4abt.lib</AdditionalDependencies>
+			<AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);C:\Program Files\Azure Kinect SDK v1.4.1\sdk\windows-desktop\amd64\release\lib;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\windows-desktop\amd64\release\lib</AdditionalLibraryDirectories>
 		</Link>
 		<PostBuildEvent />
 	</ItemDefinitionGroup>
@@ -163,7 +163,7 @@
 			<PreprocessorDefinitions>%(PreprocessorDefinitions)</PreprocessorDefinitions>
 			<RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
 			<WarningLevel>Level3</WarningLevel>
-			<AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);src;..\..\..\addons\ofxAzureKinect\libs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\include;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Debug;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Release;..\..\..\addons\ofxAzureKinect\src;..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect;C:\Program Files\Azure Kinect SDK v1.3.0\sdk\include;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\include</AdditionalIncludeDirectories>
+			<AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);src;..\..\..\addons\ofxAzureKinect\libs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\include;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Debug;..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Release;..\..\..\addons\ofxAzureKinect\src;..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect;C:\Program Files\Azure Kinect SDK v1.4.1\sdk\include;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\include</AdditionalIncludeDirectories>
 			<CompileAs>CompileAsCpp</CompileAs>
 			<ObjectFileName>$(IntDir)</ObjectFileName>
 		</ClCompile>
@@ -174,19 +174,25 @@
 			<OptimizeReferences>true</OptimizeReferences>
 			<EnableCOMDATFolding>true</EnableCOMDATFolding>
 			<RandomizedBaseAddress>false</RandomizedBaseAddress>
-			<AdditionalDependencies>%(AdditionalDependencies);turbojpeg-static.lib;k4a.lib;k4abt.lib</AdditionalDependencies>
-			<AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Release;C:\Program Files\Azure Kinect SDK v1.3.0\sdk\windows-desktop\amd64\release\lib;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\windows-desktop\amd64\release\lib</AdditionalLibraryDirectories>
+			<AdditionalDependencies>%(AdditionalDependencies);turbojpeg-static.lib;k4a.lib;k4arecord.lib;k4abt.lib</AdditionalDependencies>
+			<AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);..\..\..\addons\ofxAzureKinect\libs\turbojpeg\lib\vs\x64\Release;C:\Program Files\Azure Kinect SDK v1.4.1\sdk\windows-desktop\amd64\release\lib;C:\Program Files\Azure Kinect Body Tracking SDK\sdk\windows-desktop\amd64\release\lib</AdditionalLibraryDirectories>
 		</Link>
 		<PostBuildEvent />
 	</ItemDefinitionGroup>
 	<ItemGroup>
 		<ClCompile Include="src\main.cpp" />
 		<ClCompile Include="src\ofApp.cpp" />
+		<ClCompile Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\BodyTracker.cpp" />
 		<ClCompile Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Device.cpp" />
+		<ClCompile Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Playback.cpp" />
+		<ClCompile Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Record.cpp" />
 	</ItemGroup>
 	<ItemGroup>
 		<ClInclude Include="src\ofApp.h" />
+		<ClInclude Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\BodyTracker.h" />
 		<ClInclude Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Device.h" />
+		<ClInclude Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Playback.h" />
+		<ClInclude Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Record.h" />
 		<ClInclude Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Types.h" />
 		<ClInclude Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect.h" />
 		<ClInclude Include="..\..\..\addons\ofxAzureKinect\libs\turbojpeg\include\turbojpeg.h" />

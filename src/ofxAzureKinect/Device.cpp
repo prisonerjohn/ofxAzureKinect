@@ -7,14 +7,27 @@ const int32_t TIMEOUT_IN_MS = 1000;
 namespace ofxAzureKinect
 {
 	DeviceSettings::DeviceSettings(int idx)
-		: deviceIndex(idx), deviceSerial(""), depthMode(K4A_DEPTH_MODE_WFOV_2X2BINNED), colorResolution(K4A_COLOR_RESOLUTION_2160P), colorFormat(K4A_IMAGE_FORMAT_COLOR_BGRA32), cameraFps(K4A_FRAMES_PER_SECOND_30), wiredSyncMode(K4A_WIRED_SYNC_MODE_STANDALONE), subordinateDelayUsec(0), updateColor(true), updateIr(true), updateWorld(true), updateVbo(true), syncImages(true), enableIMU(false)
-	{
-	}
+		: depthMode(K4A_DEPTH_MODE_WFOV_2X2BINNED)
+		, colorResolution(K4A_COLOR_RESOLUTION_2160P)
+		, colorFormat(K4A_IMAGE_FORMAT_COLOR_BGRA32)
+		, cameraFps(K4A_FRAMES_PER_SECOND_30)
+		, wiredSyncMode(K4A_WIRED_SYNC_MODE_STANDALONE)
+		, depthDelayUsec(0)
+		, subordinateDelayUsec(0)
+		, updateColor(true)
+		, updateIr(true)
+		, updateWorld(true)
+		, updateVbo(true)
+		, syncImages(true)
+		, enableIMU(false)
+	{}
 
 	BodyTrackingSettings::BodyTrackingSettings()
-		: sensorOrientation(K4ABT_SENSOR_ORIENTATION_DEFAULT), processingMode(K4ABT_TRACKER_PROCESSING_MODE_GPU), gpuDeviceID(0), updateBodies(false)
-	{
-	}
+		: sensorOrientation(K4ABT_SENSOR_ORIENTATION_DEFAULT)
+		, processingMode(K4ABT_TRACKER_PROCESSING_MODE_GPU)
+		, gpuDeviceID(0)
+		, updateBodies(false)
+	{}
 
 	int Device::getInstalledCount()
 	{
@@ -22,9 +35,22 @@ namespace ofxAzureKinect
 	}
 
 	Device::Device()
-		: index(-1), pixFrameNum(0), texFrameNum(0), bOpen(false), bStreaming(false), bUpdateColor(false), bUpdateIr(false), bUpdateBodies(false), bUpdateWorld(false), bUpdateVbo(false), bodyTracker(nullptr), jpegDecompressor(tjInitDecompress())
-	{
-	}
+		: index(-1)
+		, pixFrameNum(0)
+		, texFrameNum(0)
+		, bOpen(false)
+		, bStreaming(false)
+		, bNewFrame(false)
+		, bUpdateColor(false)
+		, bUpdateIr(false)
+		, bUpdateBodies(false)
+		, bUpdateWorld(false)
+		, bUpdateVbo(false)
+		, bodyTracker(nullptr)
+		, jpegDecompressor(tjInitDecompress())
+		, bPlayback(false)
+		, bEnableIMU(false)
+	{}
 
 	Device::~Device()
 	{
@@ -33,7 +59,7 @@ namespace ofxAzureKinect
 		tjDestroy(jpegDecompressor);
 	}
 
-	bool Device::open(string filename)
+	bool Device::load(string filename)
 	{
 		bPlayback = true;
 		playback = new Playback();
@@ -47,7 +73,11 @@ namespace ofxAzureKinect
 			this->config.color_format = playback_config.color_format;
 			this->config.color_resolution = playback_config.color_resolution;
 			this->config.camera_fps = playback_config.camera_fps;
-			this->enableIMU = playback_config.imu_track_enabled;
+			this->bEnableIMU = playback_config.imu_track_enabled;
+
+			this->config.wired_sync_mode = playback_config.wired_sync_mode;
+			this->config.depth_delay_off_color_usec = playback_config.depth_delay_off_color_usec;
+			this->config.subordinate_delay_off_master_usec = playback_config.subordinate_delay_off_master_usec;
 
 			this->serialNumber = playback->get_serial_number();
 			this->bUpdateColor = playback_config.color_track_enabled;
@@ -77,161 +107,86 @@ namespace ofxAzureKinect
 		return false;
 	}
 
-	bool Device::open(string filename, BodyTrackingSettings bodyTrackingSettings)
+	bool Device::open(uint32_t idx)
 	{
-		bool result = open(filename);
-		
-		if (result)
-		{
-			this->bUpdateBodies = bodyTrackingSettings.updateBodies;
-
-			// Setup Body Tracking Config
-			this->trackerConfig.sensor_orientation = bodyTrackingSettings.sensorOrientation;
-			this->trackerConfig.gpu_device_id = bodyTrackingSettings.gpuDeviceID;
-
-			// Setup Device Calibration
-			auto calibration_handle = playback->get_calibration();
-			this->calibration.depth_camera_calibration = calibration_handle.depth_camera_calibration;
-			this->calibration.color_camera_calibration = calibration_handle.color_camera_calibration;
-			this->calibration.depth_mode = calibration_handle.depth_mode;
-			this->calibration.color_resolution = calibration_handle.color_resolution;
-			for (int i = 0; i < 4; i++)
-			{
-				for (int j = 0; j < 4; j++)
-					this->calibration.extrinsics[i][j] = calibration_handle.extrinsics[i][j];
-			}
-
-			// Create Body Tracker
-			tracker = BodyTracker(calibration, trackerConfig);
-
-		}
-
-		return result;
-	}
-
-	bool Device::open(int idx)
-	{
-		return this->open(DeviceSettings(idx), BodyTrackingSettings());
-	}
-
-	bool Device::open(DeviceSettings deviceSettings)
-	{
-		return this->open(deviceSettings, BodyTrackingSettings());
-	}
-
-	bool Device::open(DeviceSettings deviceSettings, BodyTrackingSettings bodyTrackingSettings)
-	{
-		this->config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-		this->config.depth_mode = deviceSettings.depthMode;
-		this->config.color_format = deviceSettings.colorFormat;
-		this->config.color_resolution = deviceSettings.colorResolution;
-		this->config.camera_fps = deviceSettings.cameraFps;
-		this->config.synchronized_images_only = deviceSettings.syncImages;
-		this->enableIMU = deviceSettings.enableIMU;
-
-		this->config.wired_sync_mode = deviceSettings.wiredSyncMode;
-		this->config.subordinate_delay_off_master_usec = deviceSettings.subordinateDelayUsec;
-
-		this->trackerConfig.sensor_orientation = bodyTrackingSettings.sensorOrientation;
-		this->trackerConfig.gpu_device_id = bodyTrackingSettings.gpuDeviceID;
-
 		if (this->bOpen)
 		{
-			ofLogWarning(__FUNCTION__) << "Device " << this->index << " already open!";
+			ofLogWarning(__FUNCTION__) << "Device " << this->index << " / " << this->serialNumber << " already open!";
 			return false;
 		}
 
-		if (deviceSettings.deviceSerial.empty())
+		// Load the device at the requested index.
+		try
 		{
-			// Simply load the device at the requested index.
+			// Open connection to the device.
+			this->device = k4a::device::open(idx);
+
+			// Get the device index and serial number.
+			this->index = idx;
+			this->serialNumber = this->device.get_serialnum();
+		}
+		catch (const k4a::error& e)
+		{
+			ofLogError(__FUNCTION__) << e.what();
+
+			this->device.close();
+
+			return false;
+		}
+
+		ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " / " << this->serialNumber << ".";
+		this->bOpen = true;
+
+		return true;
+		//return this->open(DeviceSettings(idx), BodyTrackingSettings());
+	}
+
+	bool Device::open(const std::string & serialNumber)
+	{
+		if (this->bOpen)
+		{
+			ofLogWarning(__FUNCTION__) << "Device " << this->index << " / " << this->serialNumber << " already open!";
+			return false;
+		}
+
+		// Loop through devices and find the one with the requested serial.
+		bool deviceFound = false;
+		int numConnected = Device::getInstalledCount();
+		for (int i = 0; i < numConnected; ++i)
+		{
 			try
 			{
 				// Open connection to the device.
-				this->device = k4a::device::open(static_cast<uint32_t>(deviceSettings.deviceIndex));
+				this->device = k4a::device::open(static_cast<uint32_t>(i));
 
-				// Get the device serial number.
+				// Get the device serial number and check it.
 				this->serialNumber = this->device.get_serialnum();
+				if (this->serialNumber == serialNumber)
+				{
+					deviceFound = true;
+					this->index = i;
+					break;
+				}
+				else
+				{
+					this->device.close();
+				}
 			}
-			catch (const k4a::error &e)
+			catch (const k4a::error& e)
 			{
-				ofLogError(__FUNCTION__) << e.what();
-
-				this->device.close();
-
-				return false;
+				// Don't worry about it; we just might be trying to access an already open device.
+				continue;
 			}
 		}
-		else
+
+		if (!deviceFound)
 		{
-			// Loop through devices and find the one with the requested serial.
-			bool deviceFound = false;
-			int numConnected = Device::getInstalledCount();
-			for (int i = 0; i < numConnected; ++i)
-			{
-				try
-				{
-					// Open connection to the device.
-					this->device = k4a::device::open(static_cast<uint32_t>(i));
-
-					// Get the device serial number and check it.
-					this->serialNumber = this->device.get_serialnum();
-					if (this->serialNumber == deviceSettings.deviceSerial)
-					{
-						deviceFound = true;
-						deviceSettings.deviceIndex = i;
-						break;
-					}
-					else
-					{
-						this->device.close();
-					}
-				}
-				catch (const k4a::error &e)
-				{
-					// Don't worry about it; we just might be trying to access an already open device.
-					continue;
-				}
-			}
-
-			if (!deviceFound)
-			{
-				ofLogError(__FUNCTION__) << "No device found with serial number " << deviceSettings.deviceSerial;
-				return false;
-			}
+			ofLogError(__FUNCTION__) << "No device found with serial number " << serialNumber;
+			return false;
 		}
 
-		this->index = deviceSettings.deviceIndex;
+		ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " / " << this->serialNumber << ".";
 		this->bOpen = true;
-
-		this->bUpdateColor = deviceSettings.updateColor;
-		this->bUpdateIr = deviceSettings.updateIr;
-		this->bUpdateWorld = deviceSettings.updateWorld;
-		this->bUpdateVbo = deviceSettings.updateWorld && deviceSettings.updateVbo;
-
-		this->bUpdateBodies = bodyTrackingSettings.updateBodies;
-
-		if (bUpdateBodies){
-
-			try
-			{
-				this->calibration = this->device.get_calibration(this->config.depth_mode, this->config.color_resolution);
-			}
-			catch (const k4a::error &e)
-			{
-				ofLogError(__FUNCTION__) << e.what();
-				return false;
-			}
-
-			// Create Body Tracker
-			tracker = BodyTracker(calibration, trackerConfig);
-		}
-
-		// Add Recording Listener
-		this->eventListeners.push(this->bRecord.newListener([this](bool) {
-			handle_recording(this->bRecord);
-		}));
-
-		ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " with serial number " << this->serialNumber << ".";
 
 		return true;
 	}
@@ -248,7 +203,7 @@ namespace ofxAzureKinect
 		else
 		{
 			// Stop IMU if cameras are enabled
-			if (this->enableIMU)
+			if (this->bEnableIMU)
 			{
 				k4a_device_stop_imu(device.handle());
 			}
@@ -267,13 +222,39 @@ namespace ofxAzureKinect
 		return true;
 	}
 
-	bool Device::startCameras()
+	bool Device::startCameras(DeviceSettings deviceSettings, BodyTrackingSettings bodyTrackingSettings)
 	{
 		if (!this->bOpen)
 		{
 			ofLogError(__FUNCTION__) << "Open device before starting cameras!";
 			return false;
 		}
+
+		if (!bPlayback) {
+			// Generate device config.
+			this->config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+			this->config.depth_mode = deviceSettings.depthMode;
+			this->config.color_format = deviceSettings.colorFormat;
+			this->config.color_resolution = deviceSettings.colorResolution;
+			this->config.camera_fps = deviceSettings.cameraFps;
+			this->config.synchronized_images_only = deviceSettings.syncImages;
+			this->bEnableIMU = deviceSettings.enableIMU;
+
+			this->config.wired_sync_mode = deviceSettings.wiredSyncMode;
+			this->config.depth_delay_off_color_usec = deviceSettings.depthDelayUsec;
+			this->config.subordinate_delay_off_master_usec = deviceSettings.subordinateDelayUsec;
+
+			// Generate tracker config.
+			this->trackerConfig.sensor_orientation = bodyTrackingSettings.sensorOrientation;
+			this->trackerConfig.gpu_device_id = bodyTrackingSettings.gpuDeviceID;
+
+			// Set update flags.
+			this->bUpdateColor = deviceSettings.updateColor;
+			this->bUpdateIr = deviceSettings.updateIr;
+			this->bUpdateWorld = deviceSettings.updateWorld;
+			this->bUpdateVbo = deviceSettings.updateWorld && deviceSettings.updateVbo;
+		}
+		this->bUpdateBodies = bodyTrackingSettings.updateBodies;
 
 		// Get calibration.
 		if (bPlayback)
@@ -311,8 +292,8 @@ namespace ofxAzureKinect
 
 		if (this->bUpdateBodies)
 		{
-			// Create tracker.
-			k4abt_tracker_create(&this->calibration, this->trackerConfig, &this->bodyTracker);
+			// Create Body Tracker
+			tracker = BodyTracker(calibration, trackerConfig);
 		}
 
 		if (this->bUpdateWorld)
@@ -362,7 +343,7 @@ namespace ofxAzureKinect
 			}
 
 			// Can only start the IMU if cameras are enabled
-			if (this->enableIMU)
+			if (this->bEnableIMU)
 			{
 				k4a_device_start_imu(device.handle());
 			}
@@ -372,6 +353,13 @@ namespace ofxAzureKinect
 		ofAddListener(ofEvents().update, this, &Device::update);
 
 		this->bStreaming = true;
+
+		if (!bPlayback) {
+			// Add Recording Listener
+			this->eventListeners.push(this->bRecord.newListener([this](bool) {
+				handle_recording(this->bRecord);
+			}));
+		}
 
 		return true;
 	}
@@ -459,7 +447,7 @@ namespace ofxAzureKinect
 			if (playback->is_playing())
 			{
 				capture = k4a::capture(playback->get_next_capture());
-				if (enableIMU)
+				if (bEnableIMU)
 				{
 					imu_sample = playback->get_next_imu_sample();
 					// printf(" | Accelerometer temperature:%.2f x:%.4f y:%.4f z: %.4f\n",
@@ -1044,7 +1032,7 @@ namespace ofxAzureKinect
 		if (val)
 		{
 			recording = new Record();
-			recording->setup(device.handle(), this->config, enableIMU);
+			recording->setup(device.handle(), this->config, bEnableIMU);
 			recording->start();
 		}
 		else

@@ -7,14 +7,14 @@ void ofApp::setup()
 
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
-	auto kinectSettings = ofxAzureKinect::DeviceSettings();
-	kinectSettings.updateIr = false;
-	kinectSettings.updateColor = true;
-	kinectSettings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
-	kinectSettings.updateVbo = true;
-	if (this->kinectDevice.open(kinectSettings))
+	if (this->kinectDevice.open())
 	{
-		this->kinectDevice.startCameras();
+		auto kinectSettings = ofxAzureKinect::DeviceSettings();
+		kinectSettings.updateIr = false;
+		kinectSettings.updateColor = true;
+		kinectSettings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
+		kinectSettings.updateVbo = true;
+		this->kinectDevice.startCameras(kinectSettings);
 	}
 }
 
@@ -39,7 +39,9 @@ void ofApp::draw()
 	{
 		this->cam.begin();
 		{
-			ofDrawAxis(100.0f);
+			//ofScale(0.001f);
+
+			ofDrawAxis(1000.0f);
 
 			if (this->kinectDevice.getColorInDepthTex().isAllocated())
 			{

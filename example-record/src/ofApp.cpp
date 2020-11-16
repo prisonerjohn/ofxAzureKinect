@@ -7,15 +7,15 @@ void ofApp::setup()
 
     auto settings = ofxAzureKinect::DeviceSettings();
     settings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
-    settings.depthMode = K4A_DEPTH_MODE_NFOV_2X2BINNED;
+    settings.depthMode = K4A_DEPTH_MODE_NFOV_UNBINNED;
     settings.colorFormat = K4A_IMAGE_FORMAT_COLOR_MJPG; // BRGA32 not supported for recording
     settings.cameraFps = K4A_FRAMES_PER_SECOND_30;
     settings.syncImages = true;
     settings.updateWorld = false;
     settings.enableIMU = true;
-    if (this->sensor.open(settings))
+    if (this->sensor.open())
     {
-        this->sensor.startCameras();
+        this->sensor.startCameras(settings);
     }
 }
 

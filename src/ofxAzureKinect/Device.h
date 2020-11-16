@@ -23,15 +23,13 @@ namespace ofxAzureKinect
 {
 	struct DeviceSettings
 	{
-		int deviceIndex;
-		std::string deviceSerial;
-
 		DepthMode depthMode;
 		ColorResolution colorResolution;
 		ImageFormat colorFormat;
 		FramesPerSecond cameraFps;
 
 		WiredSyncMode wiredSyncMode;
+		uint32_t depthDelayUsec;
 		uint32_t subordinateDelayUsec;
 
 		bool updateColor;
@@ -67,14 +65,13 @@ namespace ofxAzureKinect
 		Device();
 		~Device();
 
-		bool open(string filename);
-		bool open(string filename, BodyTrackingSettings bodyTrackingSettings);
-		bool open(int idx = 0);
-		bool open(DeviceSettings settings);
-		bool open(DeviceSettings settings, BodyTrackingSettings bodyTrackingSettings);
+		bool open(uint32_t idx = 0);
+		bool open(const std::string& serialNumber);
+
+		bool load(string filename);
 		bool close();
 
-		bool startCameras();
+		bool startCameras(DeviceSettings deviceSettings = DeviceSettings(), BodyTrackingSettings bodyTrackingSettings = BodyTrackingSettings());
 		bool stopCameras();
 
 		bool isSyncInConnected() const;
@@ -142,6 +139,7 @@ namespace ofxAzureKinect
 		bool bOpen;
 		bool bStreaming;
 		bool bPlayback;
+		bool bEnableIMU;
 
 		bool bUpdateColor;
 		bool bUpdateIr;
@@ -169,8 +167,6 @@ namespace ofxAzureKinect
 		tjhandle jpegDecompressor;
 
 		k4a_imu_sample_t imu_sample;
-		bool enableIMU = false;
-		void startIMU();
 
 		ofShortPixels depthPix;
 		ofTexture depthTex;

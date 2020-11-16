@@ -28,4 +28,5 @@ public:
 
 private:
 	ofxAzureKinect::Device kinectDevice;
+	ofFpsCounter kinectFps;
 };
