@@ -64,9 +64,9 @@ namespace ofxAzureKinect
 		bPlayback = true;
 		playback = new Playback();
 
-		if (playback->load_file(filename))
+		if (playback->load(filename))
 		{
-			k4a_record_configuration_t playback_config = playback->get_device_settings();
+			k4a_record_configuration_t playback_config = playback->getDeviceSettings();
 
 			this->config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
 			this->config.depth_mode = playback_config.depth_mode;
@@ -79,7 +79,7 @@ namespace ofxAzureKinect
 			this->config.depth_delay_off_color_usec = playback_config.depth_delay_off_color_usec;
 			this->config.subordinate_delay_off_master_usec = playback_config.subordinate_delay_off_master_usec;
 
-			this->serialNumber = playback->get_serial_number();
+			this->serialNumber = playback->getSerialNumber();
 			this->bUpdateColor = playback_config.color_track_enabled;
 			this->bUpdateIr = playback_config.ir_track_enabled;
 			this->bUpdateWorld = playback_config.depth_track_enabled;
@@ -259,7 +259,7 @@ namespace ofxAzureKinect
 		// Get calibration.
 		if (bPlayback)
 		{
-			auto calibration_handle = playback->get_calibration();
+			auto calibration_handle = playback->getCalibration();
 			this->calibration.depth_camera_calibration = calibration_handle.depth_camera_calibration;
 			this->calibration.color_camera_calibration = calibration_handle.color_camera_calibration;
 			this->calibration.depth_mode = calibration_handle.depth_mode;
@@ -444,12 +444,12 @@ namespace ofxAzureKinect
 		// Get a capture.
 		if (bPlayback)
 		{
-			if (playback->is_playing())
+			if (playback->isPlaying())
 			{
-				capture = k4a::capture(playback->get_next_capture());
+				capture = k4a::capture(playback->getNextCapture());
 				if (bEnableIMU)
 				{
-					imu_sample = playback->get_next_imu_sample();
+					imu_sample = playback->getNextImuSample();
 					// printf(" | Accelerometer temperature:%.2f x:%.4f y:%.4f z: %.4f\n",
 					// 	   imu_sample.temperature,
 					// 	   imu_sample.acc_sample.xyz.x,
@@ -457,10 +457,10 @@ namespace ofxAzureKinect
 					// 	   imu_sample.acc_sample.xyz.z);
 				}
 			}
-			else if (playback->is_paused())
+			else if (playback->isPaused())
 			{
 				playback->seek();
-				capture = k4a::capture(playback->get_next_capture());
+				capture = k4a::capture(playback->getNextCapture());
 			}
 			else
 			{
@@ -535,6 +535,8 @@ namespace ofxAzureKinect
 					const auto colorData = reinterpret_cast<uint8_t *>(colorImg.get_buffer());
 					this->colorPix.setFromPixels(colorData, colorDims.x, colorDims.y, 4);
 				}
+
+				colorImg.get_device_timestamp();
 
 				ofLogVerbose(__FUNCTION__) << "Capture Color " << colorDims.x << "x" << colorDims.y << " stride: " << colorImg.get_stride_bytes() << ".";
 			}
@@ -1041,10 +1043,10 @@ namespace ofxAzureKinect
 		}
 	}
 
-	float Device::get_recording_timer_delay()
+	float Device::getRecordingTimerDelay()
 	{
 		if (recording != nullptr)
-			return recording->get_timer_delay();
+			return recording->getTimerDelay();
 		else
 			return -1;
 	}

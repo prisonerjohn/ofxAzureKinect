@@ -20,8 +20,8 @@ namespace ofxAzureKinect
 		void record(k4a_capture_t *capture);
 
 		// Set a recording delay (in seconds)
-		void set_delay(float _delay) { this->delay = _delay; }
-		float get_timer_delay();
+		void setDelay(float _delay) { this->delay = _delay; }
+		float getTimerDelay();
 
 
 	private:

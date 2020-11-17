@@ -3,7 +3,7 @@
 namespace ofxAzureKinect
 {
 
-	bool Playback::load_file(string _filename)
+	bool Playback::load(string _filename)
 	{
 		// Convert filename from string to char*
 		char *temp = new char[_filename.size() + 1];
@@ -45,7 +45,7 @@ namespace ofxAzureKinect
 		cout << "stop" << endl;
 	}
 
-	k4a_capture_t Playback::get_next_capture()
+	k4a_capture_t Playback::getNextCapture()
 	{
 		k4a_stream_result_t result = k4a_playback_get_next_capture(playback, &capture);
 		if (result == K4A_STREAM_RESULT_SUCCEEDED)
@@ -57,7 +57,7 @@ namespace ofxAzureKinect
 			// End of file reached
 			// ofLog() << "End of file reached." << endl;
 			seek(0);
-			return get_next_capture();
+			return getNextCapture();
 		}
 		else if (result == K4A_STREAM_RESULT_FAILED)
 		{
@@ -67,7 +67,7 @@ namespace ofxAzureKinect
 		return nullptr;
 	}
 
-	k4a_imu_sample_t Playback::get_next_imu_sample()
+	k4a_imu_sample_t Playback::getNextImuSample()
 	{
 		// k4a_imu_sample_t imu_sample;
 		// checking for the IMU tracking isn't working ... may have to add a special tag when recording?
@@ -108,13 +108,13 @@ namespace ofxAzureKinect
 		k4a_playback_close(playback);
 	}
 
-	k4a_record_configuration_t Playback::get_device_settings()
+	k4a_record_configuration_t Playback::getDeviceSettings()
 	{
 		k4a_playback_get_record_configuration(playback, &config);
 		return config;
 	}
 
-	k4a_calibration_t Playback::get_calibration()
+	k4a_calibration_t Playback::getCalibration()
 	{
 		k4a_calibration_t calibration;
 		if (K4A_RESULT_SUCCEEDED != k4a_playback_get_calibration(playback, &calibration))
@@ -124,7 +124,7 @@ namespace ofxAzureKinect
 		return calibration;
 	}
 
-	string Playback::get_serial_number()
+	string Playback::getSerialNumber()
 	{
 		return get_tag("K4A_DEVICE_SERIAL_NUMBER");
 	}

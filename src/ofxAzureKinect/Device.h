@@ -106,11 +106,11 @@ namespace ofxAzureKinect
 
 		const ofVbo &getPointCloudVbo() const;
 
-		BodyTracker *get_body_tracker() { return &tracker; }
+		BodyTracker *getBodyTracker() { return &tracker; }
 
 	public:
 		ofParameter<bool> bRecord{"bRecord", false};
-		float get_recording_timer_delay();
+		float getRecordingTimerDelay();
 		ofParameter<bool> play{"play", false};
 		ofParameter<bool> pause{"pause", false};
 		ofParameter<bool> stop{"stop", false};
@@ -134,7 +134,7 @@ namespace ofxAzureKinect
 		bool updateDepthInColorFrame(const k4a::image &depthImg, const k4a::image &colorImg);
 		bool updateColorInDepthFrame(const k4a::image &depthImg, const k4a::image &colorImg);
 
-	private:
+	protected:
 		int index;
 		bool bOpen;
 		bool bStreaming;
@@ -173,6 +173,8 @@ namespace ofxAzureKinect
 
 		ofPixels colorPix;
 		ofTexture colorTex;
+		std::chrono::microseconds colorPixDeviceTime;
+		std::chrono::microseconds colorTexDeviceTime;
 
 		ofShortPixels irPix;
 		ofTexture irTex;
@@ -180,6 +182,8 @@ namespace ofxAzureKinect
 		k4a::image depthToWorldImg;
 		ofFloatPixels depthToWorldPix;
 		ofTexture depthToWorldTex;
+		std::chrono::microseconds depthPixDeviceTime;
+		std::chrono::microseconds depthTexDeviceTime;
 
 		k4a::image colorToWorldImg;
 		ofFloatPixels colorToWorldPix;

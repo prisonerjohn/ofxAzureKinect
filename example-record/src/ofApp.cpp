@@ -70,7 +70,7 @@ void ofApp::draw_recording_animation()
     ofColor col;
     string msg;
 
-    float recording_countdown = sensor.get_recording_timer_delay();
+    float recording_countdown = sensor.getRecordingTimerDelay();
     if (recording_countdown > 0)
     {
         msg = "Starting Recording In: " + ofToString(recording_countdown, 2);
@@ -100,7 +100,7 @@ void ofApp::keyPressed(int key)
         sensor.bRecord = !sensor.bRecord;
         if (sensor.bRecord)
         {
-            recording_delay = sensor.get_recording_timer_delay();
+            recording_delay = sensor.getRecordingTimerDelay();
             recording_start = ofGetElapsedTimef() + recording_delay;
         }
         else

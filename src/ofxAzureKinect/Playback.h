@@ -17,13 +17,13 @@ namespace ofxAzureKinect
 		Playback(){};
 		~Playback(){};
 
-		bool load_file(string _filename);
-		k4a_record_configuration_t get_device_settings();
-		string get_serial_number();
-		k4a_calibration_t get_calibration();
+		bool load(string _filename);
+		k4a_record_configuration_t getDeviceSettings();
+		string getSerialNumber();
+		k4a_calibration_t getCalibration();
 
-		k4a_capture_t get_next_capture();
-		k4a_imu_sample_t get_next_imu_sample();
+		k4a_capture_t getNextCapture();
+		k4a_imu_sample_t getNextImuSample();
 
 		void seek();
 		void seek(float t);
@@ -33,9 +33,9 @@ namespace ofxAzureKinect
 		void stop();
 		void close();
 
-		bool is_playing() { return status == PLAYING; }
-		bool is_paused()  { return status == PAUSED; }
-		bool is_stopped() { return status == STOPPED; }
+		bool isPlaying() { return status == PLAYING; }
+		bool isPaused()  { return status == PAUSED; }
+		bool isStopped() { return status == STOPPED; }
 
 	private:
 		k4a_playback_t playback;

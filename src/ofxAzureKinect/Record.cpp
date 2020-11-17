@@ -153,7 +153,7 @@ namespace ofxAzureKinect
 		} while (result != K4A_WAIT_RESULT_FAILED);
 	}
 
-	float Record::get_timer_delay()
+	float Record::getTimerDelay()
 	{
 		return MAX(delay - (ofGetElapsedTimef() - delay_start), 0);
 	}
