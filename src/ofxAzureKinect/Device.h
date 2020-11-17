@@ -85,9 +85,15 @@ namespace ofxAzureKinect
 
 		const ofShortPixels &getDepthPix() const;
 		const ofTexture &getDepthTex() const;
+		const std::chrono::microseconds& getDepthTexDeviceTime() const {
+			return this->depthTexDeviceTime;
+		}
 
 		const ofPixels &getColorPix() const;
 		const ofTexture &getColorTex() const;
+		const std::chrono::microseconds& getColorTexDeviceTime() const {
+			return this->colorTexDeviceTime;
+		}
 
 		const ofShortPixels &getIrPix() const;
 		const ofTexture &getIrTex() const;

@@ -142,6 +142,7 @@ void ofApp::draw()
 			if (device->isSyncOutConnected()) {
 				ofDrawBitmapStringHighlight("SyncOut", x + 200, 350, ofColor::green);
 			}
+			ofDrawBitmapStringHighlight("DeviceTime : " + ofToString(device->getColorTexDeviceTime().count()), x + 10, 40);
 
 			x += 640;
 		}

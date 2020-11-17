@@ -497,6 +497,7 @@ namespace ofxAzureKinect
 
 			const auto depthData = reinterpret_cast<uint16_t *>(depthImg.get_buffer());
 			this->depthPix.setFromPixels(depthData, depthDims.x, depthDims.y, 1);
+			this->depthPixDeviceTime = depthImg.get_device_timestamp();
 
 			ofLogVerbose(__FUNCTION__) << "Capture Depth16 " << depthDims.x << "x" << depthDims.y << " stride: " << depthImg.get_stride_bytes() << ".";
 		}
@@ -536,7 +537,7 @@ namespace ofxAzureKinect
 					this->colorPix.setFromPixels(colorData, colorDims.x, colorDims.y, 4);
 				}
 
-				colorImg.get_device_timestamp();
+				this->colorPixDeviceTime = colorImg.get_device_timestamp();
 
 				ofLogVerbose(__FUNCTION__) << "Capture Color " << colorDims.x << "x" << colorDims.y << " stride: " << colorImg.get_stride_bytes() << ".";
 			}
@@ -625,6 +626,7 @@ namespace ofxAzureKinect
 			}
 
 			this->depthTex.loadData(this->depthPix);
+			this->depthTexDeviceTime = this->depthPixDeviceTime;
 			ofLogVerbose(__FUNCTION__) << "Update Depth16 " << this->depthTex.getWidth() << "x" << this->depthTex.getHeight() << ".";
 		}
 
@@ -648,6 +650,7 @@ namespace ofxAzureKinect
 			}
 
 			this->colorTex.loadData(this->colorPix);
+			this->colorTexDeviceTime = this->colorPixDeviceTime;
 			ofLogVerbose(__FUNCTION__) << "Update Color " << this->colorTex.getWidth() << "x" << this->colorTex.getHeight() << ".";
 		}
 
