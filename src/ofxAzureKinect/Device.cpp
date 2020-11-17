@@ -439,7 +439,7 @@ namespace ofxAzureKinect
 		while (this->isThreadRunning())
 		{
 			// During recording, do not wait for render thread, not to drop frames.
-			if (!this->bRecord) {
+			if (!this->bRecording) {
 				std::unique_lock<std::mutex> lock(this->mutex);
 				while (this->isThreadRunning() && this->texFrameNum != this->pixFrameNum)
 				{
@@ -549,7 +549,7 @@ namespace ofxAzureKinect
 				if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_MJPG)
 				{
 					// during recording, preview frame rate is dropped not to drop recording frames.
-					if (!this->bRecord || this->recording->getRecordedFrameNum() % preview_interval_during_recording == 0) {
+					if (!this->bRecording || this->recording->getRecordedFrameNum() % preview_interval_during_recording == 0) {
 						const int decompressStatus = tjDecompress2(this->jpegDecompressor,
 							colorImg.get_buffer(),
 							static_cast<unsigned long>(colorImg.get_size()),
@@ -626,7 +626,7 @@ namespace ofxAzureKinect
 		}
 
 		// Do any recording before releasing the capture
-		if (this->bRecord)
+		if (this->bRecording)
 		{
 			k4a_capture_t capture_handle = capture.handle();
 			recording->record(&capture_handle);
