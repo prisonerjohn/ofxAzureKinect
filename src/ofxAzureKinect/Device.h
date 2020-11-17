@@ -124,6 +124,14 @@ namespace ofxAzureKinect
 		int32_t getExposureTimeAbsolute() const;
 		void setExposureTimeAbsolute(int32_t exposure_usec);
 
+		void startRecording(std::string filename, float delay = 0.0f);
+		void stopRecording();
+		bool isRecording() const;
+
+		void setPreviewIntervalDuringRecording(int interval) {
+			preview_interval_during_recording = interval;
+		}
+
 	public:
 		ofParameter<bool> bRecord{"bRecord", false};
 		float getRecordingTimerDelay();
@@ -154,6 +162,7 @@ namespace ofxAzureKinect
 		bool bOpen;
 		bool bStreaming;
 		bool bPlayback;
+		bool bRecording;
 		bool bEnableIMU;
 
 		bool bUpdateColor;
@@ -227,7 +236,7 @@ namespace ofxAzureKinect
 		BodyTracker tracker;
 
 		Record *recording;
-		int preview_interval_during_recording = 10;
+		int preview_interval_during_recording = 3;
 		void handle_recording(bool val);
 
 		Playback *playback;

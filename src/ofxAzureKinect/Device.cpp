@@ -68,6 +68,7 @@ namespace ofxAzureKinect
 		, bPlayback(false)
 		, bEnableIMU(false)
 		, bMultiDeviceSyncCapture(false)
+		, bRecording(false)
 	{}
 
 	Device::~Device()
@@ -1089,6 +1090,34 @@ namespace ofxAzureKinect
 		setColorCameraControlValue(K4A_COLOR_CONTROL_EXPOSURE_TIME_ABSOLUTE, exposure_usec);
 	}
 
+	void Device::startRecording(std::string filename, float delay)
+	{
+		if (isRecording()) {
+			return;
+		}
+
+		recording = new Record();
+		recording->setup(device.handle(), this->config, bEnableIMU, delay, filename);
+		recording->start();
+
+		bRecording = true;
+	}
+
+	void Device::stopRecording()
+	{
+		if (recording) {
+			recording->stop();
+			delete recording;
+			recording = nullptr;
+		}
+		bRecording = false;
+	}
+
+	bool Device::isRecording() const
+	{
+		return bRecording;
+	}
+
 	void Device::handle_recording(bool val)
 	{
 		if (val)
@@ -1101,6 +1130,7 @@ namespace ofxAzureKinect
 		{
 			recording->stop();
 		}
+		bRecording = val;
 	}
 
 	float Device::getRecordingTimerDelay()

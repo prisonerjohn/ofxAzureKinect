@@ -11,8 +11,8 @@ namespace ofxAzureKinect
 	{
 
 	public:
-		Record(){};
-		~Record();
+		Record(){}
+		~Record(){}
 
 		void setup(k4a_device_t device, k4a_device_configuration_t config, bool recording_imu_enabled = true, float delay = 3, string filename = "");
 		void start();
