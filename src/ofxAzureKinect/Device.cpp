@@ -1032,6 +1032,34 @@ namespace ofxAzureKinect
 		return this->pointCloudVbo;
 	}
 
+	int32_t Device::getColorCameraControlValue(k4a_color_control_command_t command) const
+	{
+		k4a_color_control_mode_t mode;
+		int32_t ret;
+		this->device.get_color_control(command, &mode, &ret);
+		if (mode == K4A_COLOR_CONTROL_MODE_AUTO) {
+			return INT_MIN;
+		}
+		else {
+			return ret;
+		}
+	}
+
+	void Device::setColorCameraControlValue(k4a_color_control_command_t command, int32_t value)
+	{
+		this->device.set_color_control(command, K4A_COLOR_CONTROL_MODE_MANUAL, value);
+	}
+
+	int32_t Device::getExposureTimeAbsolute() const
+	{
+		return getColorCameraControlValue(K4A_COLOR_CONTROL_EXPOSURE_TIME_ABSOLUTE);
+	}
+
+	void Device::setExposureTimeAbsolute(int32_t exposure_usec)
+	{
+		setColorCameraControlValue(K4A_COLOR_CONTROL_EXPOSURE_TIME_ABSOLUTE, exposure_usec);
+	}
+
 	void Device::handle_recording(bool val)
 	{
 		if (val)

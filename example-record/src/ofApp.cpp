@@ -16,6 +16,7 @@ void ofApp::setup()
     if (this->sensor.open())
     {
         this->sensor.startCameras(settings);
+		this->sensor.setExposureTimeAbsolute(10000);
     }
 }
 
@@ -32,7 +33,7 @@ void ofApp::update()
     // If we are recording, update the total recording time
     if (sensor.bRecord && ofGetElapsedTimef() > recording_start)
         recording_duration = ofGetElapsedTimef() - recording_start;
-    
+
 }
 
 //--------------------------------------------------------------
@@ -115,7 +116,21 @@ void ofApp::keyPressed(int key)
     case 'F':
         ofToggleFullscreen();
         break;
-    default:
+	case OF_KEY_UP:
+	{
+		auto exposure = this->sensor.getExposureTimeAbsolute();
+		cerr << "exposure : " << exposure << endl;
+		this->sensor.setExposureTimeAbsolute(exposure + 1);
+		break;
+	}
+	case OF_KEY_DOWN:
+	{
+		auto exposure = this->sensor.getExposureTimeAbsolute();
+		cerr << "exposure : " << exposure << endl;
+		this->sensor.setExposureTimeAbsolute(exposure / 3);
+		break;
+	}
+	default:
         break;
     }
 }

@@ -114,6 +114,12 @@ namespace ofxAzureKinect
 
 		BodyTracker *getBodyTracker() { return &tracker; }
 
+		int32_t getColorCameraControlValue(k4a_color_control_command_t command) const;
+		void setColorCameraControlValue(k4a_color_control_command_t command, int32_t value);
+
+		int32_t getExposureTimeAbsolute() const;
+		void setExposureTimeAbsolute(int32_t exposure_usec);
+
 	public:
 		ofParameter<bool> bRecord{"bRecord", false};
 		float getRecordingTimerDelay();
