@@ -9,10 +9,10 @@ void ofApp::setup()
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
 	// The following will start all connected devices as standalone (no sync).
-	this->setupStandalone();
+	//this->setupStandalone();
 
 	// The following will assign sync to devices based on serial number.
-	//this->setupMasterSubordinate();
+	this->setupMasterSubordinate();
 
 	// Add FPS counter for each device.
 	this->fpsCounters.resize(this->kinectDevices.size());
@@ -43,38 +43,56 @@ void ofApp::setupStandalone()
 //--------------------------------------------------------------
 void ofApp::setupMasterSubordinate()
 {
-	// Make sure to replace the following serials by the ones on your devices.
-	const std::string serialMaster = "000224694712";
-	const std::string serialSubordinate = "000569192412";
-
 	auto kinectSettings = ofxAzureKinect::DeviceSettings();
 	kinectSettings.colorResolution = K4A_COLOR_RESOLUTION_720P;
 	kinectSettings.syncImages = true;
 	kinectSettings.updateWorld = false;
 
-	// Open Master device.
+	// Open all device and check sync status.
+	int numConnected = ofxAzureKinect::Device::getInstalledCount();
+	int syncOutDeviceIndex = -1;
+	int syncInOutDeviceIndex = -1;
+
+	int connectedDeviceIndex = 0;
+	for (int i = 0; i < numConnected; ++i)
 	{
 		auto device = std::make_shared<ofxAzureKinect::Device>();
-		if (device->load(serialMaster))
+		if (device->open(i))
 		{
-			kinectSettings.wiredSyncMode = K4A_WIRED_SYNC_MODE_MASTER;
-			device->startCameras(kinectSettings);
-
 			this->kinectDevices.push_back(device);
+			if (!device->isSyncInConnected() && device->isSyncOutConnected()) {
+				syncOutDeviceIndex = connectedDeviceIndex;
+			}
+			else if (device->isSyncInConnected() && device->isSyncOutConnected()) {
+				syncInOutDeviceIndex = connectedDeviceIndex;
+			}
+			connectedDeviceIndex++;
 		}
 	}
 
-	// Open Subordinate device.
-	{
-		auto device = std::make_shared<ofxAzureKinect::Device>();
-		if (device->load(serialSubordinate))
-		{
-			kinectSettings.wiredSyncMode = K4A_WIRED_SYNC_MODE_SUBORDINATE;
-			//kinectSettings.subordinateDelayUsec = 100;
-			device->startCameras(kinectSettings);
+	int masterDeviceIndex = syncOutDeviceIndex >= 0 ? syncOutDeviceIndex : syncInOutDeviceIndex;
 
-			this->kinectDevices.push_back(device);
+	if (masterDeviceIndex < 0) {
+		ofLogWarning() << "No master device is detected. Start streams as standalone mode.";
+		for (auto& device : this->kinectDevices) {
+			device->startCameras(kinectSettings);
 		}
+	} else {
+		// Open Subordinate devices first
+		for (int i = 0; i < this->kinectDevices.size(); ++i) {
+			if (i != masterDeviceIndex) {
+				cerr << "sub device : " << this->kinectDevices[i]->getSerialNumber() << endl;
+				kinectSettings.wiredSyncMode = K4A_WIRED_SYNC_MODE_SUBORDINATE;
+				kinectSettings.subordinateDelayUsec += 160;
+				this->kinectDevices[i]->startCameras(kinectSettings);
+			}
+		}
+
+		// Open Master device
+		cerr << "master device : " << this->kinectDevices[masterDeviceIndex]->getSerialNumber() << endl;
+		kinectSettings.wiredSyncMode = K4A_WIRED_SYNC_MODE_MASTER;
+		kinectSettings.subordinateDelayUsec = 0;
+		this->kinectDevices[masterDeviceIndex]->startCameras(kinectSettings);
 	}
 }
 
@@ -117,6 +135,13 @@ void ofApp::draw()
 			device->getIrTex().draw(x + 320, 360, 320, 320);
 
 			ofDrawBitmapStringHighlight(ofToString(this->fpsCounters[i].getFps(), 2) + " FPS", x + 10, 350, device->isFrameNew() ? ofColor::red : ofColor::black);
+
+			if (device->isSyncInConnected()) {
+				ofDrawBitmapStringHighlight("SyncIn", x + 100, 350, ofColor::blue);
+			}
+			if (device->isSyncOutConnected()) {
+				ofDrawBitmapStringHighlight("SyncOut", x + 200, 350, ofColor::green);
+			}
 
 			x += 640;
 		}
