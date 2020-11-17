@@ -437,16 +437,15 @@ namespace ofxAzureKinect
 	{
 		while (this->isThreadRunning())
 		{
-			std::unique_lock<std::mutex> lock(this->mutex);
-
-			while (this->isThreadRunning() && this->texFrameNum != this->pixFrameNum)
-			{
-				this->condition.wait(lock);
+			// During recording, do not wait for render thread, not to drop frames.
+			if (!this->bRecord) {
+				std::unique_lock<std::mutex> lock(this->mutex);
+				while (this->isThreadRunning() && this->texFrameNum != this->pixFrameNum)
+				{
+					this->condition.wait(lock);
+				}
 			}
-
-			if (!bMultiDeviceSyncCapture) {
-				this->updatePixels();
-			}
+			this->updatePixels();
 		}
 	}
 
