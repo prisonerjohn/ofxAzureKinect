@@ -24,6 +24,7 @@ class ofApp : public ofBaseApp{
 		void gotMessage(ofMessage msg);
 
 		ofxAzureKinect::Device sensor;
+		ofFpsCounter fpsCounter;
 
 		void draw_recording_animation();
 

@@ -31,5 +31,6 @@ public:
 
 private:
 	std::vector<std::shared_ptr<ofxAzureKinect::Device>> kinectDevices;
+	ofxAzureKinect::MultiDeviceSyncCapture sync;
 	std::vector<ofFpsCounter> fpsCounters;
 };

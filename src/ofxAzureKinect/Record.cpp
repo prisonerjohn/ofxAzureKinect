@@ -52,6 +52,7 @@ namespace ofxAzureKinect
 	void Record::start()
 	{
 		delay_start = ofGetElapsedTimef();
+		record_frame_count = 0;
 		if (delay != 0)
 		{
 			cout << "Recording Will Begin In " << delay << " seconds!" << endl;
@@ -98,8 +99,10 @@ namespace ofxAzureKinect
 				}
 
 				// Indicate that we are recording
-				cout << ".";
-				cout.flush();
+				//cout << ".";
+				//cout.flush();
+
+				record_frame_count++;
 			}
 			else
 			{

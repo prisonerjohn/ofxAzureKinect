@@ -2,10 +2,27 @@
 
 #include "ofLog.h"
 
-const int32_t TIMEOUT_IN_MS = 1000;
 
 namespace ofxAzureKinect
 {
+	static constexpr int32_t TIMEOUT_IN_MS = 1000;
+	static constexpr int64_t WAIT_FOR_SYNCHRONIZED_CAPTURE_TIMEOUT = 60000;
+
+	static void log_lagging_time(const char *lagger, k4a::capture &master, k4a::capture &sub)
+	{
+		int32_t diff = master.get_color_image().get_device_timestamp().count() - sub.get_color_image().get_device_timestamp().count();
+		std::cout << std::setw(6) << lagger << " lagging: mc:" << std::setw(6)
+			<< master.get_color_image().get_device_timestamp().count() << "us sc:" << std::setw(6)
+			<< sub.get_color_image().get_device_timestamp().count() << "us diff:" << diff << endl;
+	}
+
+	static void log_synced_image_time(k4a::capture &master, k4a::capture &sub)
+	{
+		int32_t diff = master.get_color_image().get_device_timestamp().count() - sub.get_color_image().get_device_timestamp().count();
+		std::cout << "Sync'd capture: mc:" << std::setw(6) << master.get_color_image().get_device_timestamp().count()
+			<< "us sc:" << std::setw(6) << sub.get_color_image().get_device_timestamp().count() << "us diff:" << diff << endl;
+	}
+
 	DeviceSettings::DeviceSettings(int idx)
 		: depthMode(K4A_DEPTH_MODE_WFOV_2X2BINNED)
 		, colorResolution(K4A_COLOR_RESOLUTION_2160P)
@@ -50,6 +67,7 @@ namespace ofxAzureKinect
 		, jpegDecompressor(tjInitDecompress())
 		, bPlayback(false)
 		, bEnableIMU(false)
+		, bMultiDeviceSyncCapture(false)
 	{}
 
 	Device::~Device()
@@ -349,7 +367,12 @@ namespace ofxAzureKinect
 			}
 		}
 
-		this->startThread();
+		if (!bMultiDeviceSyncCapture) {
+			this->startThread();
+		}
+		else {
+			this->waitForThread();
+		}
 		ofAddListener(ofEvents().update, this, &Device::update);
 
 		this->bStreaming = true;
@@ -421,7 +444,9 @@ namespace ofxAzureKinect
 				this->condition.wait(lock);
 			}
 
-			this->updatePixels();
+			if (!bMultiDeviceSyncCapture) {
+				this->updatePixels();
+			}
 		}
 	}
 
@@ -442,7 +467,7 @@ namespace ofxAzureKinect
 	void Device::updatePixels()
 	{
 		// Get a capture.
-		if (bPlayback)
+		if (this->bPlayback)
 		{
 			if (playback->isPlaying())
 			{
@@ -467,6 +492,8 @@ namespace ofxAzureKinect
 				// if we are stopped, just return
 				return;
 			}
+		}
+		else if (this->bMultiDeviceSyncCapture && master_device_capture != nullptr) {
 		}
 		else
 		{
@@ -521,15 +548,18 @@ namespace ofxAzureKinect
 
 				if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_MJPG)
 				{
-					const int decompressStatus = tjDecompress2(this->jpegDecompressor,
-															   colorImg.get_buffer(),
-															   static_cast<unsigned long>(colorImg.get_size()),
-															   this->colorPix.getData(),
-															   colorDims.x,
-															   0, // pitch
-															   colorDims.y,
-															   TJPF_BGRA,
-															   TJFLAG_FASTDCT | TJFLAG_FASTUPSAMPLE);
+					// during recording, preview frame rate is dropped not to drop recording frames.
+					if (!this->bRecord || this->recording->getRecordedFrameNum() % preview_interval_during_recording == 0) {
+						const int decompressStatus = tjDecompress2(this->jpegDecompressor,
+							colorImg.get_buffer(),
+							static_cast<unsigned long>(colorImg.get_size()),
+							this->colorPix.getData(),
+							colorDims.x,
+							0, // pitch
+							colorDims.y,
+							TJPF_BGRA,
+							TJFLAG_FASTDCT | TJFLAG_FASTUPSAMPLE);
+					}
 				}
 				else
 				{
@@ -596,7 +626,7 @@ namespace ofxAzureKinect
 		}
 
 		// Do any recording before releasing the capture
-		if (bRecord)
+		if (this->bRecord)
 		{
 			k4a_capture_t capture_handle = capture.handle();
 			recording->record(&capture_handle);
@@ -1099,4 +1129,179 @@ namespace ofxAzureKinect
 		playback->seek(val);
 	}
 
+
+	void MultiDeviceSyncCapture::setMasterDevice(Device * p)
+	{
+		master_device = p;
+		master_device->bMultiDeviceSyncCapture = true;
+		master_device->master_device_capture = this;
+	}
+	void MultiDeviceSyncCapture::addSubordinateDevice(Device * p)
+	{
+		p->bMultiDeviceSyncCapture = true;
+		p->master_device_capture = this;
+		subordinate_devices.push_back(p);
+	}
+
+	void MultiDeviceSyncCapture::start()
+	{
+		if (master_device == nullptr || subordinate_devices.empty()) {
+			cerr << "MultiDeviceSyncCapture::setMasterDevice, addSubordinateDevice must be called before start." << endl;
+			return;
+		}
+		startThread();
+	}
+
+	void MultiDeviceSyncCapture::stop()
+	{
+		waitForThread();
+	}
+
+	void MultiDeviceSyncCapture::setMaxAllowableTimeOffsetUsec(uint32_t usec)
+	{
+		max_allowable_time_offset_error_for_image_timestamp = std::chrono::microseconds(usec);
+	}
+
+	void MultiDeviceSyncCapture::threadedFunction()
+	{
+		while (isThreadRunning()) {
+			// Dealing with the synchronized cameras is complex. The Azure Kinect DK:
+			//      (a) does not guarantee exactly equal timestamps between depth and color or between cameras (delays can
+			//      be configured but timestamps will only be approximately the same)
+			//      (b) does not guarantee that, if the two most recent images were synchronized, that calling get_capture
+			//      just once on each camera will still be synchronized.
+			// There are several reasons for all of this. Internally, devices keep a queue of a few of the captured images
+			// and serve those images as requested by get_capture(). However, images can also be dropped at any moment, and
+			// one device may have more images ready than another device at a given moment, et cetera.
+			//
+			// Also, the process of synchronizing is complex. The cameras are not guaranteed to exactly match in all of
+			// their timestamps when synchronized (though they should be very close). All delays are relative to the master
+			// camera's color camera. To deal with these complexities, we employ a fairly straightforward algorithm. Start
+			// by reading in two captures, then if the camera images were not taken at roughly the same time read a new one
+			// from the device that had the older capture until the timestamps roughly match.
+
+			// The captures used in the loop are outside of it so that they can persist across loop iterations. This is
+			// necessary because each time this loop runs we'll only update the older capture.
+			// The captures are stored in a vector where the first element of the vector is the master capture and
+			// subsequent elements are subordinate captures
+			//std::vector<k4a::capture> captures(subordinate_devices.size() + 1); // add 1 for the master
+			auto devices = subordinate_devices;
+			devices.push_back(master_device);
+
+			size_t current_index = 0;
+			master_device->device.get_capture(&master_device->capture, std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+			++current_index;
+			for (auto &d : subordinate_devices)
+			{
+				d->device.get_capture(&d->capture, std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+				++current_index;
+			}
+
+			bool have_synced_images = false;
+			std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+			while (!have_synced_images)
+			{
+				// Timeout if this is taking too long
+				int64_t duration_ms =
+					std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - start).count();
+				if (duration_ms > WAIT_FOR_SYNCHRONIZED_CAPTURE_TIMEOUT)
+				{
+					cerr << "ERROR: Timedout waiting for synchronized captures\n";
+				}
+
+				k4a::image master_color_image = master_device->capture.get_color_image();
+				std::chrono::microseconds master_color_image_time = master_color_image.get_device_timestamp();
+
+				for (size_t i = 0; i < subordinate_devices.size(); ++i)
+				{
+					k4a::image sub_image;
+					if (compare_sub_depth_instead_of_color)
+					{
+						sub_image = subordinate_devices[i]->capture.get_depth_image();
+					}
+					else
+					{
+						sub_image = subordinate_devices[i]->capture.get_color_image();
+					}
+
+					if (master_color_image && sub_image)
+					{
+						std::chrono::microseconds sub_image_time = sub_image.get_device_timestamp();
+						// The subordinate's color image timestamp, ideally, is the master's color image timestamp plus the
+						// delay we configured between the master device color camera and subordinate device color camera
+						std::chrono::microseconds expected_sub_image_time =
+							master_color_image_time +
+							std::chrono::microseconds{ subordinate_devices[i]->config.subordinate_delay_off_master_usec } +
+							std::chrono::microseconds{ subordinate_devices[i]->config.depth_delay_off_color_usec };
+						std::chrono::microseconds sub_image_time_error = sub_image_time - expected_sub_image_time;
+						// The time error's absolute value must be within the permissible range. So, for example, if
+						// MAX_ALLOWABLE_TIME_OFFSET_ERROR_FOR_IMAGE_TIMESTAMP is 2, offsets of -2, -1, 0, 1, and -2 are
+						// permitted
+						if (sub_image_time_error < -max_allowable_time_offset_error_for_image_timestamp)
+						{
+							// Example, where MAX_ALLOWABLE_TIME_OFFSET_ERROR_FOR_IMAGE_TIMESTAMP is 1
+							// time                    t=1  t=2  t=3
+							// actual timestamp        x    .    .
+							// expected timestamp      .    .    x
+							// error: 1 - 3 = -2, which is less than the worst-case-allowable offset of -1
+							// the subordinate camera image timestamp was earlier than it is allowed to be. This means the
+							// subordinate is lagging and we need to update the subordinate to get the subordinate caught up
+							log_lagging_time("sub", master_device->capture, subordinate_devices[i]->capture);
+							subordinate_devices[i]->device.get_capture(&subordinate_devices[i]->capture,
+								std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+							break;
+						}
+						else if (sub_image_time_error > max_allowable_time_offset_error_for_image_timestamp)
+						{
+							// Example, where MAX_ALLOWABLE_TIME_OFFSET_ERROR_FOR_IMAGE_TIMESTAMP is 1
+							// time                    t=1  t=2  t=3
+							// actual timestamp        .    .    x
+							// expected timestamp      x    .    .
+							// error: 3 - 1 = 2, which is more than the worst-case-allowable offset of 1
+							// the subordinate camera image timestamp was later than it is allowed to be. This means the
+							// subordinate is ahead and we need to update the master to get the master caught up
+							log_lagging_time("master", master_device->capture, subordinate_devices[i]->capture);
+							master_device->device.get_capture(&master_device->capture, std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+							break;
+						}
+						else
+						{
+							// These captures are sufficiently synchronized. If we've gotten to the end, then all are
+							// synchronized.
+							if (i == subordinate_devices.size() - 1)
+							{
+								log_synced_image_time(master_device->capture, subordinate_devices[i]->capture);
+								have_synced_images = true; // now we'll finish the for loop and then exit the while loop
+							}
+						}
+					}
+					else if (!master_color_image)
+					{
+						std::cout << "Master image was bad!\n";
+						master_device->device.get_capture(&master_device->capture, std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+						break;
+					}
+					else if (!sub_image)
+					{
+						std::cout << "Subordinate image was bad!" << endl;
+						subordinate_devices[i]->device.get_capture(&subordinate_devices[i]->capture,
+							std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+						break;
+					}
+				}
+			}
+			// if we've made it to here, it means that we have synchronized captures.
+			for (auto& device : devices) {
+				device->mutex.lock();
+			}
+			for (auto& device : devices) {
+				device->updatePixels();
+			}
+			for (auto& device : devices) {
+				device->mutex.unlock();
+			}
+
+			std::this_thread::sleep_for(std::chrono::microseconds(100));
+		}
+	}
 } // namespace ofxAzureKinect

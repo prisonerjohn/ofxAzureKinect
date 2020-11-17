@@ -55,10 +55,14 @@ namespace ofxAzureKinect
 		BodyTrackingSettings();
 	};
 
+	class MultiDeviceSyncCapture;
+
 	class Device
 		: ofThread
 	{
 	public:
+		friend class MultiDeviceSyncCapture;
+
 		static int getInstalledCount();
 
 	public:
@@ -131,7 +135,6 @@ namespace ofxAzureKinect
 	protected:
 		void threadedFunction() override;
 
-	private:
 		void updatePixels();
 		void updateTextures();
 
@@ -158,6 +161,8 @@ namespace ofxAzureKinect
 		bool bUpdateBodies;
 		bool bUpdateWorld;
 		bool bUpdateVbo;
+
+		bool bMultiDeviceSyncCapture;
 
 		std::condition_variable condition;
 		uint64_t pixFrameNum;
@@ -222,6 +227,7 @@ namespace ofxAzureKinect
 		BodyTracker tracker;
 
 		Record *recording;
+		int preview_interval_during_recording = 10;
 		void handle_recording(bool val);
 
 		Playback *playback;
@@ -229,5 +235,39 @@ namespace ofxAzureKinect
 		void listener_playback_pause(bool val);
 		void listener_playback_stop(bool val);
 		void listener_playback_seek(float val);
+
+		MultiDeviceSyncCapture* master_device_capture = nullptr;
+	};
+
+	// reference implementation
+	// https://github.com/microsoft/Azure-Kinect-Sensor-SDK/blob/develop/examples/green_screen/MultiDeviceCapturer.h
+	//
+	// Note  for use this class.
+	//   device firmware version must be matched and latest.
+	//   set manual exposure time to shorter, for acquiring correct sync.
+	//   more info on : https://github.com/microsoft/Azure-Kinect-Sensor-SDK/issues/1261
+	//
+	// Not sophisticated implementation.
+	class MultiDeviceSyncCapture : public ofThread
+	{
+	protected:
+		friend class Device;
+		Device* master_device = nullptr;
+		std::vector<Device*> subordinate_devices;
+		bool compare_sub_depth_instead_of_color = false;
+		std::chrono::microseconds max_allowable_time_offset_error_for_image_timestamp = std::chrono::microseconds(1000);
+	public:
+
+		// these funcs must be called before Device::startCameras();
+		void setMasterDevice(Device* p);
+		void addSubordinateDevice(Device* p);
+
+		void start();
+		void stop();
+
+		void setMaxAllowableTimeOffsetUsec(uint32_t usec);
+
+	protected:
+		void threadedFunction() override;
 	};
 } // namespace ofxAzureKinect

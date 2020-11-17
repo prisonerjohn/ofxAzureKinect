@@ -44,7 +44,7 @@ void ofApp::setupStandalone()
 void ofApp::setupMasterSubordinate()
 {
 	auto kinectSettings = ofxAzureKinect::DeviceSettings();
-	kinectSettings.colorResolution = K4A_COLOR_RESOLUTION_720P;
+	kinectSettings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
 	kinectSettings.syncImages = true;
 	kinectSettings.updateWorld = false;
 
@@ -78,12 +78,17 @@ void ofApp::setupMasterSubordinate()
 			device->startCameras(kinectSettings);
 		}
 	} else {
+		sync.setMasterDevice(kinectDevices[masterDeviceIndex].get());
+
 		// Open Subordinate devices first
 		for (int i = 0; i < this->kinectDevices.size(); ++i) {
+			this->kinectDevices[i]->setExposureTimeAbsolute(8000);
 			if (i != masterDeviceIndex) {
 				cerr << "sub device : " << this->kinectDevices[i]->getSerialNumber() << endl;
 				kinectSettings.wiredSyncMode = K4A_WIRED_SYNC_MODE_SUBORDINATE;
 				kinectSettings.subordinateDelayUsec += 160;
+				sync.addSubordinateDevice(kinectDevices[i].get());
+
 				this->kinectDevices[i]->startCameras(kinectSettings);
 			}
 		}
@@ -93,12 +98,15 @@ void ofApp::setupMasterSubordinate()
 		kinectSettings.wiredSyncMode = K4A_WIRED_SYNC_MODE_MASTER;
 		kinectSettings.subordinateDelayUsec = 0;
 		this->kinectDevices[masterDeviceIndex]->startCameras(kinectSettings);
+
+		sync.start();
 	}
 }
 
 //--------------------------------------------------------------
 void ofApp::exit()
 {
+	sync.stop();
 	for (auto device : this->kinectDevices)
 	{
 		device->close();

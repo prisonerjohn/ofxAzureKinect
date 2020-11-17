@@ -23,7 +23,9 @@ namespace ofxAzureKinect
 		void setDelay(float _delay) { this->delay = _delay; }
 		float getTimerDelay();
 
-
+		uint32_t getRecordedFrameNum() const {
+			return record_frame_count;
+		}
 	private:
 		k4a_device_t device;
 		k4a_record_t recording;
@@ -37,5 +39,6 @@ namespace ofxAzureKinect
 
 		float delay = 0;
 		float delay_start = 0;	
+		uint32_t record_frame_count = 0;
 	};
 } // namespace ofxAzureKinect
