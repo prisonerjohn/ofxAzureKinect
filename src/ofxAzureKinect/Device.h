@@ -60,6 +60,29 @@ namespace ofxAzureKinect
 	class Device
 		: ofThread
 	{
+	protected:
+		struct Frame
+		{
+			ofShortPixels depthPix;
+			std::chrono::microseconds depthPixDeviceTime;
+
+			ofPixels colorPix;
+			std::chrono::microseconds colorPixDeviceTime;
+
+			ofShortPixels irPix;
+			ofShortPixels depthInColorPix;
+			ofPixels colorInDepthPix;
+
+			ofPixels bodyIndexPix;
+			std::vector<k4abt_skeleton_t> bodySkeletons;
+			std::vector<uint32_t> bodyIDs;
+
+			std::vector<glm::vec3> positionCache;
+			std::vector<glm::vec2> uvCache;
+			size_t numPoints;
+
+			void swapFrame(Frame& f);
+		};
 	public:
 		friend class MultiDeviceSyncCapture;
 
@@ -90,13 +113,13 @@ namespace ofxAzureKinect
 		const ofShortPixels &getDepthPix() const;
 		const ofTexture &getDepthTex() const;
 		const std::chrono::microseconds& getDepthTexDeviceTime() const {
-			return this->depthTexDeviceTime;
+			return this->frameFront.depthPixDeviceTime;
 		}
 
 		const ofPixels &getColorPix() const;
 		const ofTexture &getColorTex() const;
 		const std::chrono::microseconds& getColorTexDeviceTime() const {
-			return this->colorTexDeviceTime;
+			return this->frameFront.colorPixDeviceTime;
 		}
 
 		const ofShortPixels &getIrPix() const;
@@ -176,6 +199,7 @@ namespace ofxAzureKinect
 		uint64_t pixFrameNum;
 		uint64_t texFrameNum;
 
+		bool bNewBuffer;
 		bool bNewFrame;
 
 		std::string serialNumber;
@@ -193,41 +217,25 @@ namespace ofxAzureKinect
 
 		k4a_imu_sample_t imu_sample;
 
-		ofShortPixels depthPix;
-		ofTexture depthTex;
+		// triple buffer
+		Frame frameBack;
+		Frame frameSwap;
+		Frame frameFront;
 
-		ofPixels colorPix;
-		ofTexture colorTex;
-		std::chrono::microseconds colorPixDeviceTime;
-		std::chrono::microseconds colorTexDeviceTime;
-
-		ofShortPixels irPix;
-		ofTexture irTex;
-
+		// these are thread safe
 		k4a::image depthToWorldImg;
 		ofFloatPixels depthToWorldPix;
-		ofTexture depthToWorldTex;
-		std::chrono::microseconds depthPixDeviceTime;
-		std::chrono::microseconds depthTexDeviceTime;
-
 		k4a::image colorToWorldImg;
 		ofFloatPixels colorToWorldPix;
+
+		ofTexture depthTex;
+		ofTexture colorTex;
+		ofTexture irTex;
+		ofTexture depthToWorldTex;
 		ofTexture colorToWorldTex;
-
-		ofShortPixels depthInColorPix;
 		ofTexture depthInColorTex;
-
-		ofPixels colorInDepthPix;
 		ofTexture colorInDepthTex;
-
-		ofPixels bodyIndexPix;
 		ofTexture bodyIndexTex;
-		std::vector<k4abt_skeleton_t> bodySkeletons;
-		std::vector<uint32_t> bodyIDs;
-
-		std::vector<glm::vec3> positionCache;
-		std::vector<glm::vec2> uvCache;
-		size_t numPoints;
 		ofVbo pointCloudVbo;
 
 		ofEventListeners eventListeners;

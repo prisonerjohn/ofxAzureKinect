@@ -46,6 +46,26 @@ namespace ofxAzureKinect
 		, updateBodies(false)
 	{}
 
+	void Device::Frame::swapFrame(Frame & f)
+	{
+		this->depthPix.swap(f.depthPix);
+		std::swap(this->depthPixDeviceTime, f.depthPixDeviceTime);
+
+		this->colorPix.swap(f.colorPix);
+		std::swap(this->colorPixDeviceTime, f.colorPixDeviceTime);
+
+		this->irPix.swap(f.irPix);
+		this->depthInColorPix.swap(f.depthInColorPix);
+		this->colorInDepthPix.swap(f.colorInDepthPix);
+		this->bodyIndexPix.swap(f.bodyIndexPix);
+		std::swap(this->bodySkeletons, f.bodySkeletons);
+		std::swap(this->bodyIDs, f.bodyIDs);
+
+		std::swap(this->positionCache, f.positionCache);
+		std::swap(this->uvCache, f.uvCache);
+		std::swap(this->numPoints, f.numPoints);
+	}
+
 	int Device::getInstalledCount()
 	{
 		return k4a_device_get_installed_count();
@@ -58,6 +78,7 @@ namespace ofxAzureKinect
 		, bOpen(false)
 		, bStreaming(false)
 		, bNewFrame(false)
+		, bNewBuffer(false)
 		, bUpdateColor(false)
 		, bUpdateIr(false)
 		, bUpdateBodies(false)
@@ -440,6 +461,14 @@ namespace ofxAzureKinect
 				}
 			}
 			this->updatePixels();
+
+			if (this->lock()) {
+				this->frameBack.swapFrame(this->frameSwap);
+				this->bNewBuffer = true;
+				this->unlock();
+			}
+
+			std::this_thread::sleep_for(std::chrono::microseconds(100));
 		}
 	}
 
@@ -447,12 +476,14 @@ namespace ofxAzureKinect
 	{
 		this->bNewFrame = false;
 
-		if (this->texFrameNum != this->pixFrameNum)
+		if (this->bNewBuffer)
 		{
-			std::unique_lock<std::mutex> lock(this->mutex);
-
+			if (this->lock()) {
+				this->frameFront.swapFrame(this->frameSwap);
+				this->bNewBuffer = false;
+				this->unlock();
+			}
 			this->updateTextures();
-
 			this->condition.notify_all();
 		}
 	}
@@ -506,18 +537,19 @@ namespace ofxAzureKinect
 		}
 
 		// Probe for a depth16 image.
+		auto& f = this->frameBack;
 		auto depthImg = this->capture.get_depth_image();
 		if (depthImg)
 		{
 			const auto depthDims = glm::ivec2(depthImg.get_width_pixels(), depthImg.get_height_pixels());
-			if (!depthPix.isAllocated())
+			if (!f.depthPix.isAllocated())
 			{
-				this->depthPix.allocate(depthDims.x, depthDims.y, 1);
+				f.depthPix.allocate(depthDims.x, depthDims.y, 1);
 			}
 
 			const auto depthData = reinterpret_cast<uint16_t *>(depthImg.get_buffer());
-			this->depthPix.setFromPixels(depthData, depthDims.x, depthDims.y, 1);
-			this->depthPixDeviceTime = depthImg.get_device_timestamp();
+			f.depthPix.setFromPixels(depthData, depthDims.x, depthDims.y, 1);
+			f.depthPixDeviceTime = depthImg.get_device_timestamp();
 
 			ofLogVerbose(__FUNCTION__) << "Capture Depth16 " << depthDims.x << "x" << depthDims.y << " stride: " << depthImg.get_stride_bytes() << ".";
 		}
@@ -534,9 +566,9 @@ namespace ofxAzureKinect
 			if (colorImg)
 			{
 				const auto colorDims = glm::ivec2(colorImg.get_width_pixels(), colorImg.get_height_pixels());
-				if (!colorPix.isAllocated())
+				if (!f.colorPix.isAllocated())
 				{
-					this->colorPix.allocate(colorDims.x, colorDims.y, OF_PIXELS_BGRA);
+					f.colorPix.allocate(colorDims.x, colorDims.y, OF_PIXELS_BGRA);
 				}
 
 				if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_MJPG)
@@ -546,7 +578,7 @@ namespace ofxAzureKinect
 						const int decompressStatus = tjDecompress2(this->jpegDecompressor,
 							colorImg.get_buffer(),
 							static_cast<unsigned long>(colorImg.get_size()),
-							this->colorPix.getData(),
+							f.colorPix.getData(),
 							colorDims.x,
 							0, // pitch
 							colorDims.y,
@@ -557,10 +589,10 @@ namespace ofxAzureKinect
 				else
 				{
 					const auto colorData = reinterpret_cast<uint8_t *>(colorImg.get_buffer());
-					this->colorPix.setFromPixels(colorData, colorDims.x, colorDims.y, 4);
+					f.colorPix.setFromPixels(colorData, colorDims.x, colorDims.y, 4);
 				}
 
-				this->colorPixDeviceTime = colorImg.get_device_timestamp();
+				f.colorPixDeviceTime = colorImg.get_device_timestamp();
 
 				ofLogVerbose(__FUNCTION__) << "Capture Color " << colorDims.x << "x" << colorDims.y << " stride: " << colorImg.get_stride_bytes() << ".";
 			}
@@ -578,13 +610,13 @@ namespace ofxAzureKinect
 			if (irImg)
 			{
 				const auto irSize = glm::ivec2(irImg.get_width_pixels(), irImg.get_height_pixels());
-				if (!this->irPix.isAllocated())
+				if (!f.irPix.isAllocated())
 				{
-					this->irPix.allocate(irSize.x, irSize.y, 1);
+					f.irPix.allocate(irSize.x, irSize.y, 1);
 				}
 
 				const auto irData = reinterpret_cast<uint16_t *>(irImg.get_buffer());
-				this->irPix.setFromPixels(irData, irSize.x, irSize.y, 1);
+				f.irPix.setFromPixels(irData, irSize.x, irSize.y, 1);
 
 				ofLogVerbose(__FUNCTION__) << "Capture Ir16 " << irSize.x << "x" << irSize.y << " stride: " << irImg.get_stride_bytes() << ".";
 			}
@@ -603,11 +635,11 @@ namespace ofxAzureKinect
 		{
 			if (this->bUpdateColor)
 			{
-				this->updatePointsCache(depthImg, this->depthToWorldImg); //(colorImg, this->colorToWorldImg);
+				this->updatePointsCache(depthImg, depthToWorldImg); //(colorImg, this->colorToWorldImg);
 			}
 			else
 			{
-				this->updatePointsCache(depthImg, this->depthToWorldImg);
+				this->updatePointsCache(depthImg, depthToWorldImg);
 			}
 		}
 
@@ -639,26 +671,26 @@ namespace ofxAzureKinect
 
 	void Device::updateTextures()
 	{
-		if (this->depthPix.isAllocated())
+		auto& f = this->frameFront;
+		if (f.depthPix.isAllocated())
 		{
 			// Update the depth texture.
 			if (!this->depthTex.isAllocated())
 			{
-				this->depthTex.allocate(this->depthPix);
+				this->depthTex.allocate(f.depthPix);
 				this->depthTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 			}
 
-			this->depthTex.loadData(this->depthPix);
-			this->depthTexDeviceTime = this->depthPixDeviceTime;
+			this->depthTex.loadData(f.depthPix);
 			ofLogVerbose(__FUNCTION__) << "Update Depth16 " << this->depthTex.getWidth() << "x" << this->depthTex.getHeight() << ".";
 		}
 
-		if (this->bUpdateColor && this->colorPix.isAllocated())
+		if (this->bUpdateColor && f.colorPix.isAllocated())
 		{
 			// Update the color texture.
 			if (!this->colorTex.isAllocated())
 			{
-				this->colorTex.allocate(this->colorPix);
+				this->colorTex.allocate(f.colorPix);
 				this->colorTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 
 				if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
@@ -672,60 +704,59 @@ namespace ofxAzureKinect
 				}
 			}
 
-			this->colorTex.loadData(this->colorPix);
-			this->colorTexDeviceTime = this->colorPixDeviceTime;
+			this->colorTex.loadData(f.colorPix);
 			ofLogVerbose(__FUNCTION__) << "Update Color " << this->colorTex.getWidth() << "x" << this->colorTex.getHeight() << ".";
 		}
 
-		if (this->bUpdateIr && this->irPix.isAllocated())
+		if (this->bUpdateIr && f.irPix.isAllocated())
 		{
 			// Update the IR16 image.
 			if (!this->irTex.isAllocated())
 			{
-				this->irTex.allocate(this->irPix);
+				this->irTex.allocate(f.irPix);
 				this->irTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 				this->irTex.setRGToRGBASwizzles(true);
 			}
 
-			this->irTex.loadData(this->irPix);
+			this->irTex.loadData(f.irPix);
 			ofLogVerbose(__FUNCTION__) << "Update Ir16 " << this->irTex.getWidth() << "x" << this->irTex.getHeight() << ".";
 		}
 
-		if (this->bUpdateBodies && this->bodyIndexPix.isAllocated())
+		if (this->bUpdateBodies && f.bodyIndexPix.isAllocated())
 		{
 			if (!this->bodyIndexTex.isAllocated())
 			{
-				this->bodyIndexTex.allocate(this->bodyIndexPix);
+				this->bodyIndexTex.allocate(f.bodyIndexPix);
 				this->bodyIndexTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 			}
 
-			this->bodyIndexTex.loadData(this->bodyIndexPix);
+			this->bodyIndexTex.loadData(f.bodyIndexPix);
 		}
 
 		if (this->bUpdateVbo)
 		{
-			this->pointCloudVbo.setVertexData(this->positionCache.data(), this->numPoints, GL_STREAM_DRAW);
-			this->pointCloudVbo.setTexCoordData(this->uvCache.data(), this->numPoints, GL_STREAM_DRAW);
+			this->pointCloudVbo.setVertexData(f.positionCache.data(), f.numPoints, GL_STREAM_DRAW);
+			this->pointCloudVbo.setTexCoordData(f.uvCache.data(), f.numPoints, GL_STREAM_DRAW);
 		}
 
 		if (this->bUpdateColor && this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
 		{
-			if (this->depthInColorPix.isAllocated())
+			if (f.depthInColorPix.isAllocated())
 			{
 				if (!this->depthInColorTex.isAllocated())
 				{
-					this->depthInColorTex.allocate(this->depthInColorPix);
+					this->depthInColorTex.allocate(f.depthInColorPix);
 					this->depthInColorTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 				}
 
-				this->depthInColorTex.loadData(this->depthInColorPix);
+				this->depthInColorTex.loadData(f.depthInColorPix);
 			}
 
-			if (this->colorInDepthPix.isAllocated())
+			if (f.colorInDepthPix.isAllocated())
 			{
 				if (!this->colorInDepthTex.isAllocated())
 				{
-					this->colorInDepthTex.allocate(this->colorInDepthPix);
+					this->colorInDepthTex.allocate(f.colorInDepthPix);
 					this->colorInDepthTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 					this->colorInDepthTex.bind();
 					{
@@ -735,7 +766,7 @@ namespace ofxAzureKinect
 					this->colorInDepthTex.unbind();
 				}
 
-				this->colorInDepthTex.loadData(this->colorInDepthPix);
+				this->colorInDepthTex.loadData(f.colorInDepthPix);
 			}
 		}
 
@@ -847,6 +878,7 @@ namespace ofxAzureKinect
 		return true;
 	}
 
+	// Kinect Thread function.
 	bool Device::updatePointsCache(k4a::image &frameImg, k4a::image &tableImg)
 	{
 		const auto frameDims = glm::ivec2(frameImg.get_width_pixels(), frameImg.get_height_pixels());
@@ -860,8 +892,9 @@ namespace ofxAzureKinect
 		const auto frameData = reinterpret_cast<uint16_t *>(frameImg.get_buffer());
 		const auto tableData = reinterpret_cast<k4a_float2_t *>(tableImg.get_buffer());
 
-		this->positionCache.resize(frameDims.x * frameDims.y);
-		this->uvCache.resize(frameDims.x * frameDims.y);
+		auto& f = this->frameBack;
+		f.positionCache.resize(frameDims.x * frameDims.y);
+		f.uvCache.resize(frameDims.x * frameDims.y);
 
 		int count = 0;
 		for (int y = 0; y < frameDims.y; ++y)
@@ -873,23 +906,24 @@ namespace ofxAzureKinect
 					tableData[idx].xy.x != 0 && tableData[idx].xy.y != 0)
 				{
 					float depthVal = static_cast<float>(frameData[idx]);
-					this->positionCache[count] = glm::vec3(
+					f.positionCache[count] = glm::vec3(
 						tableData[idx].xy.x * depthVal,
 						tableData[idx].xy.y * depthVal,
 						depthVal);
 
-					this->uvCache[count] = glm::vec2(x, y);
+					f.uvCache[count] = glm::vec2(x, y);
 
 					++count;
 				}
 			}
 		}
 
-		this->numPoints = count;
+		f.numPoints = count;
 
 		return true;
 	}
 
+	// Kinect Thread function.
 	bool Device::updateDepthInColorFrame(const k4a::image &depthImg, const k4a::image &colorImg)
 	{
 		const auto colorDims = glm::ivec2(colorImg.get_width_pixels(), colorImg.get_height_pixels());
@@ -911,12 +945,13 @@ namespace ofxAzureKinect
 
 		const auto transformedColorData = reinterpret_cast<uint16_t *>(transformedDepthImg.get_buffer());
 
-		if (!this->depthInColorPix.isAllocated())
+		auto& f = this->frameBack;
+		if (!f.depthInColorPix.isAllocated())
 		{
-			this->depthInColorPix.allocate(colorDims.x, colorDims.y, 1);
+			f.depthInColorPix.allocate(colorDims.x, colorDims.y, 1);
 		}
 
-		this->depthInColorPix.setFromPixels(transformedColorData, colorDims.x, colorDims.y, 1);
+		f.depthInColorPix.setFromPixels(transformedColorData, colorDims.x, colorDims.y, 1);
 
 		ofLogVerbose(__FUNCTION__) << "Depth in Color " << colorDims.x << "x" << colorDims.y << " stride: " << transformedDepthImg.get_stride_bytes() << ".";
 
@@ -925,6 +960,7 @@ namespace ofxAzureKinect
 		return true;
 	}
 
+	// Kinect Thread function.
 	bool Device::updateColorInDepthFrame(const k4a::image &depthImg, const k4a::image &colorImg)
 	{
 		const auto depthDims = glm::ivec2(depthImg.get_width_pixels(), depthImg.get_height_pixels());
@@ -946,12 +982,13 @@ namespace ofxAzureKinect
 
 		const auto transformedColorData = reinterpret_cast<uint8_t *>(transformedColorImg.get_buffer());
 
-		if (!this->colorInDepthPix.isAllocated())
+		auto& f = this->frameBack;
+		if (!f.colorInDepthPix.isAllocated())
 		{
-			this->colorInDepthPix.allocate(depthDims.x, depthDims.y, OF_PIXELS_BGRA);
+			f.colorInDepthPix.allocate(depthDims.x, depthDims.y, OF_PIXELS_BGRA);
 		}
 
-		this->colorInDepthPix.setFromPixels(transformedColorData, depthDims.x, depthDims.y, 4);
+		f.colorInDepthPix.setFromPixels(transformedColorData, depthDims.x, depthDims.y, 4);
 
 		ofLogVerbose(__FUNCTION__) << "Color in Depth " << depthDims.x << "x" << depthDims.y << " stride: " << transformedColorImg.get_stride_bytes() << ".";
 
@@ -982,7 +1019,7 @@ namespace ofxAzureKinect
 
 	const ofShortPixels &Device::getDepthPix() const
 	{
-		return this->depthPix;
+		return this->frameFront.depthPix;
 	}
 
 	const ofTexture &Device::getDepthTex() const
@@ -992,7 +1029,7 @@ namespace ofxAzureKinect
 
 	const ofPixels &Device::getColorPix() const
 	{
-		return this->colorPix;
+		return this->frameFront.colorPix;
 	}
 
 	const ofTexture &Device::getColorTex() const
@@ -1002,7 +1039,7 @@ namespace ofxAzureKinect
 
 	const ofShortPixels &Device::getIrPix() const
 	{
-		return this->irPix;
+		return this->frameFront.irPix;
 	}
 
 	const ofTexture &Device::getIrTex() const
@@ -1032,7 +1069,7 @@ namespace ofxAzureKinect
 
 	const ofShortPixels &Device::getDepthInColorPix() const
 	{
-		return this->depthInColorPix;
+		return this->frameFront.depthInColorPix;
 	}
 
 	const ofTexture &Device::getDepthInColorTex() const
@@ -1042,7 +1079,7 @@ namespace ofxAzureKinect
 
 	const ofPixels &Device::getColorInDepthPix() const
 	{
-		return this->colorInDepthPix;
+		return this->frameFront.colorInDepthPix;
 	}
 
 	const ofTexture &Device::getColorInDepthTex() const
@@ -1299,13 +1336,14 @@ namespace ofxAzureKinect
 			}
 			// if we've made it to here, it means that we have synchronized captures.
 			for (auto& device : devices) {
-				device->mutex.lock();
-			}
-			for (auto& device : devices) {
 				device->updatePixels();
 			}
 			for (auto& device : devices) {
-				device->mutex.unlock();
+				if (device->lock()) {
+					device->frameBack.swapFrame(device->frameSwap);
+					device->bNewBuffer = true;
+					device->unlock();
+				}
 			}
 
 			std::this_thread::sleep_for(std::chrono::microseconds(100));
