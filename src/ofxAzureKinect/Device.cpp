@@ -69,6 +69,11 @@ namespace ofxAzureKinect
 		std::swap(this->numPoints, f.numPoints);
 	}
 
+	void Device::Frame::reset()
+	{
+		*this = Frame();
+	}
+
 	Device::JpegDecodeThread::JpegDecodeThread() : jpegDecompressor(tjInitDecompress())
 	{
 	}
@@ -152,6 +157,7 @@ namespace ofxAzureKinect
 		, bEnableIMU(false)
 		, bMultiDeviceSyncCapture(false)
 		, bRecording(false)
+		, bAsyncJpegDecode(false)
 	{}
 
 	Device::~Device()
@@ -487,6 +493,7 @@ namespace ofxAzureKinect
 		ofRemoveListener(ofEvents().update, this, &Device::update);
 
 		this->depthToWorldImg.reset();
+		this->colorToWorldImg.reset();
 		this->transformation.destroy();
 
 		if (this->bUpdateBodies)
@@ -505,6 +512,21 @@ namespace ofxAzureKinect
 		{
 			this->device.stop_cameras();
 		}
+
+		this->frameBack.reset();
+		this->frameSwap.reset();
+		this->frameFront.reset();
+		this->depthToWorldPix.clear();
+		this->colorToWorldPix.clear();
+		this->depthTex.clear();
+		this->colorTex.clear();
+		this->irTex.clear();
+		this->depthToWorldTex.clear();
+		this->colorToWorldTex.clear();
+		this->depthInColorTex.clear();
+		this->colorInDepthTex.clear();
+		this->bodyIndexTex.clear();
+		this->pointCloudVbo.clear();
 
 		this->bStreaming = false;
 
@@ -654,7 +676,7 @@ namespace ofxAzureKinect
 				if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_MJPG)
 				{
 					// during recording, jpeg decode task is dispatched to another thread, not to drop recording frames.
-					if (this->bRecording) {
+					if (this->bRecording || this->bAsyncJpegDecode) {
 						JpegTask task;
 						task.colorPixBuf.set((const char*)colorImg.get_buffer(), colorImg.get_size());
 						task.colorPixDeviceTime = colorImg.get_device_timestamp();

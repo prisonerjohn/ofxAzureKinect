@@ -83,6 +83,7 @@ namespace ofxAzureKinect
 			size_t numPoints;
 
 			void swapFrame(Frame& f);
+			void reset();
 		};
 
 		struct JpegTask
@@ -180,6 +181,9 @@ namespace ofxAzureKinect
 		void startRecording(std::string filename = "", float delay = 0.0f);
 		void stopRecording();
 		bool isRecording() const;
+
+		bool isAsyncJpegDecode() const { return this->bAsyncJpegDecode; }
+		void setAsyncJpegDecode(bool b) { this->bAsyncJpegDecode = b; }
 	public:
 		float getRecordingTimerDelay();
 		ofParameter<bool> play{"play", false};
@@ -188,12 +192,12 @@ namespace ofxAzureKinect
 		ofParameter<float> seek{"Seek", 0.0f, 0.0f, 1.0f};
 
 	protected:
-		void threadedFunction() override;
+		virtual void threadedFunction() override;
 
-		void updatePixels();
-		void updateTextures();
+		virtual void updatePixels();
+		virtual void updateTextures();
 
-		void update(ofEventArgs &args);
+		virtual void update(ofEventArgs &args);
 
 		bool setupDepthToWorldTable();
 		bool setupColorToWorldTable();
@@ -219,6 +223,7 @@ namespace ofxAzureKinect
 		bool bUpdateVbo;
 
 		bool bMultiDeviceSyncCapture;
+		bool bAsyncJpegDecode;
 
 		std::condition_variable condition;
 		uint64_t pixFrameNum;
