@@ -58,7 +58,7 @@ void ofApp::draw()
 {
 	ofBackground(0);
 
-	ofxAzureKinect::BodyTracker *tracker = kinectDevice.get_body_tracker();
+	ofxAzureKinect::BodyTracker *tracker = kinectDevice.getBodyTracker();
 
 	tracker->draw_body_map();
 
@@ -74,7 +74,7 @@ void ofApp::draw()
 
 	stringstream ss;
 	ss << ofToString(ofGetFrameRate(), 2) + " FPS" << std::endl;
-	ss << "Joint Smoothing: " << kinectDevice.get_body_tracker()->get_joint_smoothing();
+	ss << "Joint Smoothing: " << tracker->get_joint_smoothing();
 	ofDrawBitmapStringHighlight(ss.str(), 10, 20);
 }
 
@@ -136,7 +136,7 @@ void ofApp::mouseDragged(int x, int y, int button)
 {
 	if (button == 1)
 	{
-		this->kinectDevice.get_body_tracker()->set_joint_smoothing(ofMap(x, 0, ofGetWidth(), 0.0f, 1.0f, true));
+		this->kinectDevice.getBodyTracker()->set_joint_smoothing(ofMap(x, 0, ofGetWidth(), 0.0f, 1.0f, true));
 	}
 }
 

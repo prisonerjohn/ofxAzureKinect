@@ -51,8 +51,11 @@ namespace ofxAzureKinect
 		this->depthPix.swap(f.depthPix);
 		std::swap(this->depthPixDeviceTime, f.depthPixDeviceTime);
 
-		this->colorPix.swap(f.colorPix);
-		std::swap(this->colorPixDeviceTime, f.colorPixDeviceTime);
+		if (this->bColorPixUpdated) {
+			this->colorPix.swap(f.colorPix);
+			std::swap(this->colorPixDeviceTime, f.colorPixDeviceTime);
+			std::swap(this->bColorPixUpdated, f.bColorPixUpdated);
+		}
 
 		this->irPix.swap(f.irPix);
 		this->depthInColorPix.swap(f.depthInColorPix);
@@ -479,7 +482,7 @@ namespace ofxAzureKinect
 		if (this->bNewBuffer)
 		{
 			if (this->lock()) {
-				this->frameFront.swapFrame(this->frameSwap);
+				this->frameSwap.swapFrame(this->frameFront);
 				this->bNewBuffer = false;
 				this->unlock();
 			}
@@ -584,15 +587,22 @@ namespace ofxAzureKinect
 							colorDims.y,
 							TJPF_BGRA,
 							TJFLAG_FASTDCT | TJFLAG_FASTUPSAMPLE);
+						f.bColorPixUpdated = true;
+					}
+					else {
+						f.bColorPixUpdated = false;
 					}
 				}
 				else
 				{
 					const auto colorData = reinterpret_cast<uint8_t *>(colorImg.get_buffer());
 					f.colorPix.setFromPixels(colorData, colorDims.x, colorDims.y, 4);
+					f.bColorPixUpdated = true;
 				}
 
-				f.colorPixDeviceTime = colorImg.get_device_timestamp();
+				if (f.bColorPixUpdated) {
+					f.colorPixDeviceTime = colorImg.get_device_timestamp();
+				}
 
 				ofLogVerbose(__FUNCTION__) << "Capture Color " << colorDims.x << "x" << colorDims.y << " stride: " << colorImg.get_stride_bytes() << ".";
 			}

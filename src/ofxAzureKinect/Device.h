@@ -67,6 +67,7 @@ namespace ofxAzureKinect
 			std::chrono::microseconds depthPixDeviceTime;
 
 			ofPixels colorPix;
+			bool bColorPixUpdated = false;
 			std::chrono::microseconds colorPixDeviceTime;
 
 			ofShortPixels irPix;
