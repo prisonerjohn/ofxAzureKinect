@@ -378,13 +378,6 @@ namespace ofxAzureKinect
 
 		this->bStreaming = true;
 
-		if (!bPlayback) {
-			// Add Recording Listener
-			this->eventListeners.push(this->bRecord.newListener([this](bool) {
-				handle_recording(this->bRecord);
-			}));
-		}
-
 		return true;
 	}
 
@@ -1116,21 +1109,6 @@ namespace ofxAzureKinect
 	bool Device::isRecording() const
 	{
 		return bRecording;
-	}
-
-	void Device::handle_recording(bool val)
-	{
-		if (val)
-		{
-			recording = new Record();
-			recording->setup(device.handle(), this->config, bEnableIMU);
-			recording->start();
-		}
-		else
-		{
-			recording->stop();
-		}
-		bRecording = val;
 	}
 
 	float Device::getRecordingTimerDelay()

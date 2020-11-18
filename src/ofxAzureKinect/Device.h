@@ -124,7 +124,7 @@ namespace ofxAzureKinect
 		int32_t getExposureTimeAbsolute() const;
 		void setExposureTimeAbsolute(int32_t exposure_usec);
 
-		void startRecording(std::string filename, float delay = 0.0f);
+		void startRecording(std::string filename = "", float delay = 0.0f);
 		void stopRecording();
 		bool isRecording() const;
 
@@ -133,7 +133,6 @@ namespace ofxAzureKinect
 		}
 
 	public:
-		ofParameter<bool> bRecord{"bRecord", false};
 		float getRecordingTimerDelay();
 		ofParameter<bool> play{"play", false};
 		ofParameter<bool> pause{"pause", false};
@@ -237,7 +236,6 @@ namespace ofxAzureKinect
 
 		Record *recording;
 		int preview_interval_during_recording = 3;
-		void handle_recording(bool val);
 
 		Playback *playback;
 		void listener_playback_play(bool val);

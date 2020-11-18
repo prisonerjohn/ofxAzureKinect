@@ -34,7 +34,7 @@ void ofApp::update()
 {
 
     // If we are recording, update the total recording time
-    if (sensor.bRecord && ofGetElapsedTimef() > recording_start)
+    if (sensor.isRecording() && ofGetElapsedTimef() > recording_start)
         recording_duration = ofGetElapsedTimef() - recording_start;
 
 	if (sensor.isFrameNew()) {
@@ -56,7 +56,7 @@ void ofApp::draw()
         this->sensor.getIrTex().draw(0, 360, 360, 360);
     }
 
-    if (sensor.bRecord)
+    if (sensor.isRecording())
     {
         draw_recording_animation();
     }
@@ -106,8 +106,13 @@ void ofApp::keyPressed(int key)
     {
     case ' ':
     {
-        sensor.bRecord = !sensor.bRecord;
-        if (sensor.bRecord)
+		if (!sensor.isRecording()) {
+			sensor.startRecording();
+		}
+		else {
+			sensor.stopRecording();
+		}
+        if (sensor.isRecording())
         {
             recording_delay = sensor.getRecordingTimerDelay();
             recording_start = ofGetElapsedTimef() + recording_delay;
