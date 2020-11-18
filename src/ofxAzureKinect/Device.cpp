@@ -69,6 +69,65 @@ namespace ofxAzureKinect
 		std::swap(this->numPoints, f.numPoints);
 	}
 
+	Device::JpegDecodeThread::JpegDecodeThread() : jpegDecompressor(tjInitDecompress())
+	{
+	}
+
+	Device::JpegDecodeThread::~JpegDecodeThread()
+	{
+		toProcess.close();
+		processed.close();
+		tjDestroy(jpegDecompressor);
+	}
+
+	bool Device::JpegDecodeThread::pushTaskIfEmpty(JpegTask & b)
+	{
+		if (toProcess.empty()) {
+			toProcess.send(b);
+			return true;
+		}
+		return false;
+	}
+
+	bool Device::JpegDecodeThread::update(ofPixels & outPix, std::chrono::microseconds & outTime)
+	{
+		DecodedPix ret;
+		bool onceReceived = false;
+		while (processed.tryReceive(ret)) {
+			onceReceived = true;
+		}
+
+		if (onceReceived) {
+			outPix = std::move(ret.colorPix);
+			outTime = ret.colorPixDeviceTime;
+		}
+		return onceReceived;
+	}
+
+	void Device::JpegDecodeThread::threadedFunction()
+	{
+		while (isThreadRunning()) {
+			JpegTask b;
+			if (toProcess.tryReceive(b)) {
+				DecodedPix pix;
+				int width, height, jpegSubsamp, jpegColorspace;
+				const int header = tjDecompressHeader3(this->jpegDecompressor,
+					(const unsigned char*)b.colorPixBuf.getData(),
+					static_cast<unsigned long>(b.colorPixBuf.size()),
+					&width, &height, &jpegSubsamp, &jpegColorspace);
+				pix.colorPix.allocate(width, height, OF_PIXELS_BGRA);
+				const int decompressStatus = tjDecompress2(this->jpegDecompressor,
+					(const unsigned char*)b.colorPixBuf.getData(),
+					static_cast<unsigned long>(b.colorPixBuf.size()),
+					pix.colorPix.getData(),
+					width, 0, height, TJPF_BGRA, TJFLAG_FASTDCT | TJFLAG_FASTUPSAMPLE);
+				pix.colorPixDeviceTime = b.colorPixDeviceTime;
+				processed.send(pix);
+			}
+			std::this_thread::sleep_for(std::chrono::microseconds(100));
+		}
+	}
+
 	int Device::getInstalledCount()
 	{
 		return k4a_device_get_installed_count();
@@ -398,6 +457,14 @@ namespace ofxAzureKinect
 		else {
 			this->waitForThread();
 		}
+
+		if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_MJPG) {
+			this->decodeThread.startThread();
+		} 
+		else {
+			this->decodeThread.waitForThread();
+		}
+
 		ofAddListener(ofEvents().update, this, &Device::update);
 
 		this->bStreaming = true;
@@ -411,6 +478,9 @@ namespace ofxAzureKinect
 			return false;
 
 		std::unique_lock<std::mutex> lock(this->mutex);
+		if (this->decodeThread.isThreadRunning()) {
+			this->decodeThread.waitForThread();
+		}
 		this->stopThread();
 		this->condition.notify_all();
 
@@ -481,6 +551,12 @@ namespace ofxAzureKinect
 
 		if (this->bNewBuffer)
 		{
+			if (this->decodeThread.isThreadRunning()) {
+				auto ret = this->decodeThread.update(this->frameSwap.colorPix, this->frameSwap.colorPixDeviceTime);
+				if (ret) {
+					this->frameSwap.bColorPixUpdated = true;
+				}
+			}
 			if (this->lock()) {
 				this->frameSwap.swapFrame(this->frameFront);
 				this->bNewBuffer = false;
@@ -576,8 +652,15 @@ namespace ofxAzureKinect
 
 				if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_MJPG)
 				{
-					// during recording, preview frame rate is dropped not to drop recording frames.
-					if (!this->bRecording || this->recording->getRecordedFrameNum() % preview_interval_during_recording == 0) {
+					// during recording, jpeg decode task is dispatched to another thread, not to drop recording frames.
+					if (this->bRecording) {
+						JpegTask task;
+						task.colorPixBuf.set((const char*)colorImg.get_buffer(), colorImg.get_size());
+						task.colorPixDeviceTime = colorImg.get_device_timestamp();
+						this->decodeThread.pushTaskIfEmpty(task);
+						f.bColorPixUpdated = false;
+					}
+					else {
 						const int decompressStatus = tjDecompress2(this->jpegDecompressor,
 							colorImg.get_buffer(),
 							static_cast<unsigned long>(colorImg.get_size()),
@@ -588,9 +671,6 @@ namespace ofxAzureKinect
 							TJPF_BGRA,
 							TJFLAG_FASTDCT | TJFLAG_FASTUPSAMPLE);
 						f.bColorPixUpdated = true;
-					}
-					else {
-						f.bColorPixUpdated = false;
 					}
 				}
 				else

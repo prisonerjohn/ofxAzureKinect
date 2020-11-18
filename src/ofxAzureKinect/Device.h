@@ -84,6 +84,35 @@ namespace ofxAzureKinect
 
 			void swapFrame(Frame& f);
 		};
+
+		struct JpegTask
+		{
+			ofBuffer colorPixBuf;
+			std::chrono::microseconds colorPixDeviceTime;
+		};
+
+		struct DecodedPix
+		{
+			ofPixels colorPix;
+			std::chrono::microseconds colorPixDeviceTime;
+		};
+
+		struct JpegDecodeThread : public ofThread
+		{
+		protected:
+			tjhandle jpegDecompressor;
+			ofThreadChannel<JpegTask> toProcess;
+			ofThreadChannel<DecodedPix> processed;
+			void threadedFunction() override;
+
+		public:
+
+			JpegDecodeThread();
+			~JpegDecodeThread();
+
+			bool pushTaskIfEmpty(JpegTask& b);
+			bool update(ofPixels& outPix, std::chrono::microseconds& outTime);
+		} decodeThread;
 	public:
 		friend class MultiDeviceSyncCapture;
 
@@ -151,11 +180,6 @@ namespace ofxAzureKinect
 		void startRecording(std::string filename = "", float delay = 0.0f);
 		void stopRecording();
 		bool isRecording() const;
-
-		void setPreviewIntervalDuringRecording(int interval) {
-			preview_interval_during_recording = interval;
-		}
-
 	public:
 		float getRecordingTimerDelay();
 		ofParameter<bool> play{"play", false};
@@ -244,8 +268,6 @@ namespace ofxAzureKinect
 		BodyTracker tracker;
 
 		Record *recording;
-		int preview_interval_during_recording = 3;
-
 		Playback *playback;
 		void listener_playback_play(bool val);
 		void listener_playback_pause(bool val);
