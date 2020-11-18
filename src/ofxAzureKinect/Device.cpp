@@ -559,6 +559,7 @@ namespace ofxAzureKinect
 			}
 			if (this->lock()) {
 				this->frameSwap.swapFrame(this->frameFront);
+				this->frameFront.bColorPixUpdated = false;
 				this->bNewBuffer = false;
 				this->unlock();
 			}
