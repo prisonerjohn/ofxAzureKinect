@@ -572,7 +572,7 @@ namespace ofxAzureKinect
 		while (this->isThreadRunning())
 		{
 			// During recording, do not wait for render thread, not to drop frames.
-			if (!this->bRecording) {
+			if (!this->bRecording || this->bAsyncJpegDecode) {
 				std::unique_lock<std::mutex> lock(this->mutex);
 				while (this->isThreadRunning() && this->texFrameNum != this->pixFrameNum)
 				{
