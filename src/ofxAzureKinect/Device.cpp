@@ -1324,6 +1324,22 @@ namespace ofxAzureKinect
 		subordinate_devices.push_back(p);
 	}
 
+	void MultiDeviceSyncCapture::removeAllDevices()
+	{
+		if (master_device != nullptr) {
+			master_device->bMultiDeviceSyncCapture = false;
+			master_device->master_device_capture = nullptr;
+			master_device = nullptr;
+		}
+
+		for (auto &p : subordinate_devices)
+		{
+			p->bMultiDeviceSyncCapture = false;
+			p->master_device_capture = nullptr;
+		}
+		subordinate_devices.clear();
+	}
+
 	void MultiDeviceSyncCapture::start()
 	{
 		if (master_device == nullptr || subordinate_devices.empty()) {

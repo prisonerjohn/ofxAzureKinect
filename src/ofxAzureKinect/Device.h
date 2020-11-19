@@ -308,6 +308,8 @@ namespace ofxAzureKinect
 		void setMasterDevice(Device* p);
 		void addSubordinateDevice(Device* p);
 
+		void removeAllDevices();
+
 		void start();
 		void stop();
 
