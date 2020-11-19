@@ -111,6 +111,9 @@ namespace ofxAzureKinect
 			JpegDecodeThread();
 			~JpegDecodeThread();
 
+			void start();
+			void stop();
+
 			bool pushTaskIfEmpty(JpegTask& b);
 			bool update(ofPixels& outPix, std::chrono::microseconds& outTime);
 		} decodeThread;

@@ -85,6 +85,32 @@ namespace ofxAzureKinect
 		tjDestroy(jpegDecompressor);
 	}
 
+	void Device::JpegDecodeThread::start()
+	{
+		if (isThreadRunning()) {
+			return;
+		}
+		startThread();
+	}
+
+	void Device::JpegDecodeThread::stop()
+	{
+		if (!isThreadRunning()) {
+			return;
+		}
+		waitForThread();
+
+		// clear remaining tasks
+		if (!toProcess.empty()) {
+			JpegTask b;
+			while (toProcess.tryReceive(b)) {}
+		}
+		if (!processed.empty()) {
+			DecodedPix b;
+			while (processed.tryReceive(b)) {}
+		}
+	}
+
 	bool Device::JpegDecodeThread::pushTaskIfEmpty(JpegTask & b)
 	{
 		if (toProcess.empty()) {
@@ -465,10 +491,10 @@ namespace ofxAzureKinect
 		}
 
 		if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_MJPG) {
-			this->decodeThread.startThread();
+			this->decodeThread.start();
 		} 
 		else {
-			this->decodeThread.waitForThread();
+			this->decodeThread.stop();
 		}
 
 		ofAddListener(ofEvents().update, this, &Device::update);
@@ -484,9 +510,7 @@ namespace ofxAzureKinect
 			return false;
 
 		std::unique_lock<std::mutex> lock(this->mutex);
-		if (this->decodeThread.isThreadRunning()) {
-			this->decodeThread.waitForThread();
-		}
+		this->decodeThread.stop();
 		this->stopThread();
 		this->condition.notify_all();
 
