@@ -184,6 +184,8 @@ namespace ofxAzureKinect
 		, bMultiDeviceSyncCapture(false)
 		, bRecording(false)
 		, bAsyncJpegDecode(false)
+		, bEnableAutoUpdate(true)
+		, bEnableThread(true)
 	{}
 
 	Device::~Device()
@@ -483,7 +485,7 @@ namespace ofxAzureKinect
 			}
 		}
 
-		if (!bMultiDeviceSyncCapture) {
+		if (!bMultiDeviceSyncCapture && bEnableThread) {
 			this->startThread();
 		}
 		else {
@@ -497,7 +499,9 @@ namespace ofxAzureKinect
 			this->decodeThread.stop();
 		}
 
-		ofAddListener(ofEvents().update, this, &Device::update);
+		if (bEnableAutoUpdate) {
+			ofAddListener(ofEvents().update, this, &Device::update);
+		}
 
 		this->bStreaming = true;
 
@@ -514,7 +518,9 @@ namespace ofxAzureKinect
 		this->stopThread();
 		this->condition.notify_all();
 
-		ofRemoveListener(ofEvents().update, this, &Device::update);
+		if (bEnableAutoUpdate) {
+			ofRemoveListener(ofEvents().update, this, &Device::update);
+		}
 
 		this->depthToWorldImg.reset();
 		this->colorToWorldImg.reset();
@@ -557,6 +563,39 @@ namespace ofxAzureKinect
 		return true;
 	}
 
+	void Device::update()
+	{
+		if (!bEnableThread && !bMultiDeviceSyncCapture) {
+			this->updatePixels();
+
+			if (this->lock()) {
+				this->frameBack.swapFrame(this->frameSwap);
+				this->bNewBuffer = true;
+				this->unlock();
+			}
+		}
+
+		this->bNewFrame = false;
+
+		if (this->bNewBuffer)
+		{
+			if (this->decodeThread.isThreadRunning()) {
+				auto ret = this->decodeThread.update(this->frameSwap.colorPix, this->frameSwap.colorPixDeviceTime);
+				if (ret) {
+					this->frameSwap.bColorPixUpdated = true;
+				}
+			}
+			if (this->lock()) {
+				this->frameSwap.swapFrame(this->frameFront);
+				this->frameFront.bColorPixUpdated = false;
+				this->bNewBuffer = false;
+				this->unlock();
+			}
+			this->updateTextures();
+			this->condition.notify_all();
+		}
+	}
+
 	bool Device::isSyncInConnected() const
 	{
 		return this->device.is_sync_in_connected();
@@ -593,25 +632,7 @@ namespace ofxAzureKinect
 
 	void Device::update(ofEventArgs &args)
 	{
-		this->bNewFrame = false;
-
-		if (this->bNewBuffer)
-		{
-			if (this->decodeThread.isThreadRunning()) {
-				auto ret = this->decodeThread.update(this->frameSwap.colorPix, this->frameSwap.colorPixDeviceTime);
-				if (ret) {
-					this->frameSwap.bColorPixUpdated = true;
-				}
-			}
-			if (this->lock()) {
-				this->frameSwap.swapFrame(this->frameFront);
-				this->frameFront.bColorPixUpdated = false;
-				this->bNewBuffer = false;
-				this->unlock();
-			}
-			this->updateTextures();
-			this->condition.notify_all();
-		}
+		this->update();
 	}
 
 	void Device::updatePixels()

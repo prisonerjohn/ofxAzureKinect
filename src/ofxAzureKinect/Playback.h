@@ -27,6 +27,7 @@ namespace ofxAzureKinect
 
 		void seek();
 		void seek(float t);
+		void seekByDeviceTime(uint32_t device_usec);
 
 		void play();
 		void pause();
@@ -36,6 +37,13 @@ namespace ofxAzureKinect
 		bool isPlaying() { return status == PLAYING; }
 		bool isPaused()  { return status == PAUSED; }
 		bool isStopped() { return status == STOPPED; }
+
+		uint32_t getStartTimeOffsetUsec() const {
+			return config.start_timestamp_offset_usec;
+		}
+		uint32_t getRecordingLengthUsec() const {
+			return recording_length;
+		}
 
 	private:
 		k4a_playback_t playback;
@@ -61,5 +69,8 @@ namespace ofxAzureKinect
 			PLAYING
 		};
 		Status status = STOPPED;
+
+		bool b_seek_by_device_time = false;
+		uint32_t last_seek_device_usec = 0;
 	};
 } // namespace ofxAzureKinect

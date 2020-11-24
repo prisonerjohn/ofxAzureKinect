@@ -135,6 +135,8 @@ namespace ofxAzureKinect
 		bool startCameras(DeviceSettings deviceSettings = DeviceSettings(), BodyTrackingSettings bodyTrackingSettings = BodyTrackingSettings());
 		bool stopCameras();
 
+		void update();
+
 		bool isSyncInConnected() const;
 		bool isSyncOutConnected() const;
 
@@ -187,6 +189,12 @@ namespace ofxAzureKinect
 
 		bool isAsyncJpegDecode() const { return this->bAsyncJpegDecode; }
 		void setAsyncJpegDecode(bool b) { this->bAsyncJpegDecode = b; }
+
+		bool isEnableAutoUpdate() const { return this->bEnableAutoUpdate; }
+		void setEnableAutoUpdate(bool b) { this->bEnableAutoUpdate = b; }
+
+		bool isEnableThread() const { return this->bEnableThread; }
+		void setEnableThread(bool b) { this->bEnableThread = b; }
 	public:
 		float getRecordingTimerDelay();
 		ofParameter<bool> play{"play", false};
@@ -227,6 +235,8 @@ namespace ofxAzureKinect
 
 		bool bMultiDeviceSyncCapture;
 		bool bAsyncJpegDecode;
+		bool bEnableAutoUpdate;
+		bool bEnableThread;
 
 		std::condition_variable condition;
 		uint64_t pixFrameNum;

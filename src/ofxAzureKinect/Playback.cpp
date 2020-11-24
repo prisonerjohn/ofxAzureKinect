@@ -20,7 +20,7 @@ namespace ofxAzureKinect
 			return false;
 		}
 
-		recording_length = k4a_playback_get_last_timestamp_usec(playback);
+		recording_length = k4a_playback_get_recording_length_usec(playback);
 		printf("Recording is %lld seconds long\n", recording_length / 1000000);
 
 		return true;
@@ -79,6 +79,7 @@ namespace ofxAzureKinect
 
 	void Playback::seek(float amt)
 	{
+		b_seek_by_device_time = false;
 		seek_head = amt;
 		int play_head = int(ofMap(seek_head, 0, 1, 0, recording_length, true));
 
@@ -90,15 +91,26 @@ namespace ofxAzureKinect
 		}
 	}
 
-	void Playback::seek()
+	void Playback::seekByDeviceTime(uint32_t device_usec)
 	{
-		int play_head = int(ofMap(seek_head, 0, 1, 0, recording_length, true));
+		b_seek_by_device_time = true;
+		last_seek_device_usec = device_usec;
 
-		// Seek to 10 seconds from the start
-		if (k4a_playback_seek_timestamp(playback, play_head, K4A_PLAYBACK_SEEK_BEGIN) != K4A_RESULT_SUCCEEDED)
+		if (k4a_playback_seek_timestamp(playback, last_seek_device_usec, K4A_PLAYBACK_SEEK_DEVICE_TIME) != K4A_RESULT_SUCCEEDED)
 		{
 			ofLogError(__FUNCTION__) << "K4A_PLAYBACK_SEEK FAILED.";
 			return;
+		}
+	}
+
+	void Playback::seek()
+	{
+		if (b_seek_by_device_time) {
+			this->seekByDeviceTime(last_seek_device_usec);
+		}
+		else
+		{
+			this->seek(this->seek_head);
 		}
 	}
 
