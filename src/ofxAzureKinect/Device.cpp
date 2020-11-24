@@ -445,20 +445,22 @@ namespace ofxAzureKinect
 		}
 
 		// Check compatible sync mode and connection.
-		if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_MASTER && !this->isSyncOutConnected())
-		{
-			ofLogWarning(__FUNCTION__) << "Wired sync mode set to Master but Sync Out not connected! Reverting to Standalone.";
-			this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
-		}
-		else if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_SUBORDINATE && !this->isSyncInConnected())
-		{
-			ofLogWarning(__FUNCTION__) << "Wired sync mode set to Subordinate but Sync In not connected! Reverting to Standalone.";
-			this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
-		}
+		if (!bPlayback) {
+			if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_MASTER && !this->isSyncOutConnected())
+			{
+				ofLogWarning(__FUNCTION__) << "Wired sync mode set to Master but Sync Out not connected! Reverting to Standalone.";
+				this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
+			}
+			else if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_SUBORDINATE && !this->isSyncInConnected())
+			{
+				ofLogWarning(__FUNCTION__) << "Wired sync mode set to Subordinate but Sync In not connected! Reverting to Standalone.";
+				this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
+			}
 
-		if (this->config.wired_sync_mode != K4A_WIRED_SYNC_MODE_SUBORDINATE)
-		{
-			this->config.subordinate_delay_off_master_usec = 0;
+			if (this->config.wired_sync_mode != K4A_WIRED_SYNC_MODE_SUBORDINATE)
+			{
+				this->config.subordinate_delay_off_master_usec = 0;
+			}
 		}
 
 		// Start cameras.
@@ -801,11 +803,23 @@ namespace ofxAzureKinect
 			}
 		}
 
-		if (colorImg && this->bUpdateColor && this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
+		if (colorImg && this->bUpdateColor && (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32 || (!bRecording && !bAsyncJpegDecode)))
 		{
-			// TODO: Fix this for non-BGRA formats, maybe always keep a BGRA k4a::image around.
-			this->updateDepthInColorFrame(depthImg, colorImg);
-			this->updateColorInDepthFrame(depthImg, colorImg);
+			if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
+			{
+				// TODO: Fix this for non-BGRA formats, maybe always keep a BGRA k4a::image around.
+				this->updateDepthInColorFrame(depthImg, colorImg);
+				this->updateColorInDepthFrame(depthImg, colorImg);
+			}
+			else
+			{
+				k4a::image bgraColorImg = k4a::image::create_from_buffer(
+					K4A_IMAGE_FORMAT_COLOR_BGRA32, f.colorPix.getWidth(), f.colorPix.getHeight(),
+					f.colorPix.getBytesStride(), f.colorPix.getData(), f.colorPix.size(), nullptr, nullptr);
+				// TODO: Fix this for non-BGRA formats, maybe always keep a BGRA k4a::image around.
+				this->updateDepthInColorFrame(depthImg, bgraColorImg);
+				this->updateColorInDepthFrame(depthImg, bgraColorImg);
+			}
 		}
 
 		// Do any recording before releasing the capture
@@ -897,7 +911,7 @@ namespace ofxAzureKinect
 			this->pointCloudVbo.setTexCoordData(f.uvCache.data(), f.numPoints, GL_STREAM_DRAW);
 		}
 
-		if (this->bUpdateColor && this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
+		if (this->bUpdateColor && (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32 || (!bRecording && !bAsyncJpegDecode)))
 		{
 			if (f.depthInColorPix.isAllocated())
 			{
