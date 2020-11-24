@@ -202,6 +202,9 @@ namespace ofxAzureKinect
 		ofParameter<bool> stop{"stop", false};
 		ofParameter<float> seek{"Seek", 0.0f, 0.0f, 1.0f};
 
+		Playback* getPlayback() {return this->playback; }
+		Record* getRecord() { return this->recording; }
+
 	protected:
 		virtual void threadedFunction() override;
 
