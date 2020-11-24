@@ -443,20 +443,22 @@ namespace ofxAzureKinect
 		}
 
 		// Check compatible sync mode and connection.
-		if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_MASTER && !this->isSyncOutConnected())
-		{
-			ofLogWarning(__FUNCTION__) << "Wired sync mode set to Master but Sync Out not connected! Reverting to Standalone.";
-			this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
-		}
-		else if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_SUBORDINATE && !this->isSyncInConnected())
-		{
-			ofLogWarning(__FUNCTION__) << "Wired sync mode set to Subordinate but Sync In not connected! Reverting to Standalone.";
-			this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
-		}
+		if (!bPlayback) {
+			if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_MASTER && !this->isSyncOutConnected())
+			{
+				ofLogWarning(__FUNCTION__) << "Wired sync mode set to Master but Sync Out not connected! Reverting to Standalone.";
+				this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
+			}
+			else if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_SUBORDINATE && !this->isSyncInConnected())
+			{
+				ofLogWarning(__FUNCTION__) << "Wired sync mode set to Subordinate but Sync In not connected! Reverting to Standalone.";
+				this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
+			}
 
-		if (this->config.wired_sync_mode != K4A_WIRED_SYNC_MODE_SUBORDINATE)
-		{
-			this->config.subordinate_delay_off_master_usec = 0;
+			if (this->config.wired_sync_mode != K4A_WIRED_SYNC_MODE_SUBORDINATE)
+			{
+				this->config.subordinate_delay_off_master_usec = 0;
+			}
 		}
 
 		// Start cameras.
