@@ -39,7 +39,7 @@ void ofApp::draw()
 	{
 		this->cam.begin();
 		{
-			ofScale(0.001f);
+			//ofScale(0.001f);
 
 			ofDrawAxis(1000.0f);
 

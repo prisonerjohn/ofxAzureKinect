@@ -106,3 +106,7 @@ Desktop.ini
 *.log
 *.sql
 *.sqlite
+*.sln
+*.vcxproj
+
+*.mkv

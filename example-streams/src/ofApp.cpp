@@ -10,6 +10,7 @@ void ofApp::setup()
 	if (this->kinectDevice.open())
 	{
 		auto kinectSettings = ofxAzureKinect::DeviceSettings();
+		kinectSettings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
 		kinectSettings.syncImages = false;
 		kinectSettings.updateWorld = false;
 		this->kinectDevice.startCameras(kinectSettings);

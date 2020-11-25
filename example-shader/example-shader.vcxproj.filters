@@ -13,7 +13,16 @@
 		<ClCompile Include="src\ofApp.cpp">
 			<Filter>src</Filter>
 		</ClCompile>
+		<ClCompile Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\BodyTracker.cpp">
+			<Filter>addons\ofxAzureKinect\src\ofxAzureKinect</Filter>
+		</ClCompile>
 		<ClCompile Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Device.cpp">
+			<Filter>addons\ofxAzureKinect\src\ofxAzureKinect</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Playback.cpp">
+			<Filter>addons\ofxAzureKinect\src\ofxAzureKinect</Filter>
+		</ClCompile>
+		<ClCompile Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Record.cpp">
 			<Filter>addons\ofxAzureKinect\src\ofxAzureKinect</Filter>
 		</ClCompile>
 	</ItemGroup>
@@ -50,7 +59,16 @@
 		<ClInclude Include="src\ofApp.h">
 			<Filter>src</Filter>
 		</ClInclude>
+		<ClInclude Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\BodyTracker.h">
+			<Filter>addons\ofxAzureKinect\src\ofxAzureKinect</Filter>
+		</ClInclude>
 		<ClInclude Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Device.h">
+			<Filter>addons\ofxAzureKinect\src\ofxAzureKinect</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Playback.h">
+			<Filter>addons\ofxAzureKinect\src\ofxAzureKinect</Filter>
+		</ClInclude>
+		<ClInclude Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Record.h">
 			<Filter>addons\ofxAzureKinect\src\ofxAzureKinect</Filter>
 		</ClInclude>
 		<ClInclude Include="..\..\..\addons\ofxAzureKinect\src\ofxAzureKinect\Types.h">

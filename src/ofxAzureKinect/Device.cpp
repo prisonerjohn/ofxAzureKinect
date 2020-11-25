@@ -2,10 +2,27 @@
 
 #include "ofLog.h"
 
-const int32_t TIMEOUT_IN_MS = 1000;
 
 namespace ofxAzureKinect
 {
+	static constexpr int32_t TIMEOUT_IN_MS = 1000;
+	static constexpr int64_t WAIT_FOR_SYNCHRONIZED_CAPTURE_TIMEOUT = 60000;
+
+	static void log_lagging_time(const char *lagger, k4a::capture &master, k4a::capture &sub)
+	{
+		int32_t diff = master.get_color_image().get_device_timestamp().count() - sub.get_color_image().get_device_timestamp().count();
+		std::cout << std::setw(6) << lagger << " lagging: mc:" << std::setw(6)
+			<< master.get_color_image().get_device_timestamp().count() << "us sc:" << std::setw(6)
+			<< sub.get_color_image().get_device_timestamp().count() << "us diff:" << diff << endl;
+	}
+
+	static void log_synced_image_time(k4a::capture &master, k4a::capture &sub)
+	{
+		int32_t diff = master.get_color_image().get_device_timestamp().count() - sub.get_color_image().get_device_timestamp().count();
+		std::cout << "Sync'd capture: mc:" << std::setw(6) << master.get_color_image().get_device_timestamp().count()
+			<< "us sc:" << std::setw(6) << sub.get_color_image().get_device_timestamp().count() << "us diff:" << diff << endl;
+	}
+
 	DeviceSettings::DeviceSettings(int idx)
 		: depthMode(K4A_DEPTH_MODE_WFOV_2X2BINNED)
 		, colorResolution(K4A_COLOR_RESOLUTION_2160P)
@@ -19,6 +36,7 @@ namespace ofxAzureKinect
 		, updateWorld(true)
 		, updateVbo(true)
 		, syncImages(true)
+		, enableIMU(false)
 	{}
 
 	BodyTrackingSettings::BodyTrackingSettings()
@@ -27,6 +45,119 @@ namespace ofxAzureKinect
 		, gpuDeviceID(0)
 		, updateBodies(false)
 	{}
+
+	void Device::Frame::swapFrame(Frame & f)
+	{
+		this->depthPix.swap(f.depthPix);
+		std::swap(this->depthPixDeviceTime, f.depthPixDeviceTime);
+
+		if (this->bColorPixUpdated) {
+			this->colorPix.swap(f.colorPix);
+			std::swap(this->colorPixDeviceTime, f.colorPixDeviceTime);
+			std::swap(this->bColorPixUpdated, f.bColorPixUpdated);
+		}
+
+		this->irPix.swap(f.irPix);
+		this->depthInColorPix.swap(f.depthInColorPix);
+		this->colorInDepthPix.swap(f.colorInDepthPix);
+		this->bodyIndexPix.swap(f.bodyIndexPix);
+		std::swap(this->bodySkeletons, f.bodySkeletons);
+		std::swap(this->bodyIDs, f.bodyIDs);
+
+		std::swap(this->positionCache, f.positionCache);
+		std::swap(this->uvCache, f.uvCache);
+		std::swap(this->numPoints, f.numPoints);
+	}
+
+	void Device::Frame::reset()
+	{
+		*this = Frame();
+	}
+
+	Device::JpegDecodeThread::JpegDecodeThread() : jpegDecompressor(tjInitDecompress())
+	{
+	}
+
+	Device::JpegDecodeThread::~JpegDecodeThread()
+	{
+		toProcess.close();
+		processed.close();
+		tjDestroy(jpegDecompressor);
+	}
+
+	void Device::JpegDecodeThread::start()
+	{
+		if (isThreadRunning()) {
+			return;
+		}
+		startThread();
+	}
+
+	void Device::JpegDecodeThread::stop()
+	{
+		if (!isThreadRunning()) {
+			return;
+		}
+		waitForThread();
+
+		// clear remaining tasks
+		if (!toProcess.empty()) {
+			JpegTask b;
+			while (toProcess.tryReceive(b)) {}
+		}
+		if (!processed.empty()) {
+			DecodedPix b;
+			while (processed.tryReceive(b)) {}
+		}
+	}
+
+	bool Device::JpegDecodeThread::pushTaskIfEmpty(JpegTask & b)
+	{
+		if (toProcess.empty()) {
+			toProcess.send(b);
+			return true;
+		}
+		return false;
+	}
+
+	bool Device::JpegDecodeThread::update(ofPixels & outPix, std::chrono::microseconds & outTime)
+	{
+		DecodedPix ret;
+		bool onceReceived = false;
+		while (processed.tryReceive(ret)) {
+			onceReceived = true;
+		}
+
+		if (onceReceived) {
+			outPix = std::move(ret.colorPix);
+			outTime = ret.colorPixDeviceTime;
+		}
+		return onceReceived;
+	}
+
+	void Device::JpegDecodeThread::threadedFunction()
+	{
+		while (isThreadRunning()) {
+			JpegTask b;
+			if (toProcess.tryReceive(b)) {
+				DecodedPix pix;
+				int width, height, jpegSubsamp, jpegColorspace;
+				const int header = tjDecompressHeader3(this->jpegDecompressor,
+					(const unsigned char*)b.colorPixBuf.getData(),
+					static_cast<unsigned long>(b.colorPixBuf.size()),
+					&width, &height, &jpegSubsamp, &jpegColorspace);
+				pix.colorPix.allocate(width, height, OF_PIXELS_BGRA);
+				const int decompressStatus = tjDecompress2(this->jpegDecompressor,
+					(const unsigned char*)b.colorPixBuf.getData(),
+					static_cast<unsigned long>(b.colorPixBuf.size()),
+					pix.colorPix.getData(),
+					width, 0, height, TJPF_BGRA, TJFLAG_FASTDCT | TJFLAG_FASTUPSAMPLE);
+				pix.colorPixDeviceTime = b.colorPixDeviceTime;
+				processed.send(pix);
+			}
+			std::this_thread::sleep_for(std::chrono::microseconds(100));
+		}
+	}
 
 	int Device::getInstalledCount()
 	{
@@ -40,6 +171,7 @@ namespace ofxAzureKinect
 		, bOpen(false)
 		, bStreaming(false)
 		, bNewFrame(false)
+		, bNewBuffer(false)
 		, bUpdateColor(false)
 		, bUpdateIr(false)
 		, bUpdateBodies(false)
@@ -47,6 +179,13 @@ namespace ofxAzureKinect
 		, bUpdateVbo(false)
 		, bodyTracker(nullptr)
 		, jpegDecompressor(tjInitDecompress())
+		, bPlayback(false)
+		, bEnableIMU(false)
+		, bMultiDeviceSyncCapture(false)
+		, bRecording(false)
+		, bAsyncJpegDecode(false)
+		, bEnableAutoUpdate(true)
+		, bEnableThread(true)
 	{}
 
 	Device::~Device()
@@ -54,6 +193,54 @@ namespace ofxAzureKinect
 		this->close();
 
 		tjDestroy(jpegDecompressor);
+	}
+
+	bool Device::load(string filename)
+	{
+		bPlayback = true;
+		playback = new Playback();
+
+		if (playback->load(filename))
+		{
+			k4a_record_configuration_t playback_config = playback->getDeviceSettings();
+
+			this->config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+			this->config.depth_mode = playback_config.depth_mode;
+			this->config.color_format = playback_config.color_format;
+			this->config.color_resolution = playback_config.color_resolution;
+			this->config.camera_fps = playback_config.camera_fps;
+			this->bEnableIMU = playback_config.imu_track_enabled;
+
+			this->config.wired_sync_mode = playback_config.wired_sync_mode;
+			this->config.depth_delay_off_color_usec = playback_config.depth_delay_off_color_usec;
+			this->config.subordinate_delay_off_master_usec = playback_config.subordinate_delay_off_master_usec;
+
+			this->serialNumber = playback->getSerialNumber();
+			this->bUpdateColor = playback_config.color_track_enabled;
+			this->bUpdateIr = playback_config.ir_track_enabled;
+			this->bUpdateWorld = playback_config.depth_track_enabled;
+			this->bUpdateVbo = playback_config.depth_track_enabled;
+
+			// Add Playback Listeners
+			this->eventListeners.push(this->play.newListener([this](bool) {
+				listener_playback_play(this->play);
+			}));
+			this->eventListeners.push(this->pause.newListener([this](bool) {
+				listener_playback_pause(this->pause);
+			}));
+			this->eventListeners.push(this->stop.newListener([this](bool) {
+				listener_playback_stop(this->stop);
+			}));
+			this->eventListeners.push(this->seek.newListener([this](bool) {
+				listener_playback_seek(this->seek);
+			}));
+
+			ofLogNotice(__FUNCTION__) << "Successfully opened device " << this->index << " with serial number " << this->serialNumber << ".";
+
+			bOpen = true;
+			return true;
+		}
+		return false;
 	}
 
 	bool Device::open(uint32_t idx)
@@ -87,9 +274,10 @@ namespace ofxAzureKinect
 		this->bOpen = true;
 
 		return true;
+		//return this->open(DeviceSettings(idx), BodyTrackingSettings());
 	}
 
-	bool Device::open(const std::string& serialNumber)
+	bool Device::open(const std::string & serialNumber)
 	{
 		if (this->bOpen)
 		{
@@ -141,15 +329,31 @@ namespace ofxAzureKinect
 
 	bool Device::close()
 	{
-		if (!this->bOpen) return false;
+		if (!this->bOpen)
+			return false;
 
-		this->stopCameras();
+		if (bPlayback)
+		{
+			this->stopCameras();
+		}
+		else
+		{
+			// Stop IMU if cameras are enabled
+			if (this->bEnableIMU)
+			{
+				k4a_device_stop_imu(device.handle());
+			}
 
-		this->device.close();
+			this->stopCameras();
+
+			this->device.close();
+		}
+
+		this->eventListeners.unsubscribeAll();
 
 		this->index = -1;
-		this->serialNumber = "";
 		this->bOpen = false;
+		this->serialNumber = "";
 
 		return true;
 	}
@@ -162,39 +366,58 @@ namespace ofxAzureKinect
 			return false;
 		}
 
-		// Generate device config.
-		this->config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-		this->config.depth_mode = deviceSettings.depthMode;
-		this->config.color_format = deviceSettings.colorFormat;
-		this->config.color_resolution = deviceSettings.colorResolution;
-		this->config.camera_fps = deviceSettings.cameraFps;
-		this->config.synchronized_images_only = deviceSettings.syncImages;
+		if (!bPlayback) {
+			// Generate device config.
+			this->config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+			this->config.depth_mode = deviceSettings.depthMode;
+			this->config.color_format = deviceSettings.colorFormat;
+			this->config.color_resolution = deviceSettings.colorResolution;
+			this->config.camera_fps = deviceSettings.cameraFps;
+			this->config.synchronized_images_only = deviceSettings.syncImages;
+			this->bEnableIMU = deviceSettings.enableIMU;
 
-		this->config.wired_sync_mode = deviceSettings.wiredSyncMode;
-		this->config.depth_delay_off_color_usec = deviceSettings.depthDelayUsec;
-		this->config.subordinate_delay_off_master_usec = deviceSettings.subordinateDelayUsec;
+			this->config.wired_sync_mode = deviceSettings.wiredSyncMode;
+			this->config.depth_delay_off_color_usec = deviceSettings.depthDelayUsec;
+			this->config.subordinate_delay_off_master_usec = deviceSettings.subordinateDelayUsec;
 
-		// Generate tracker config.
-		this->trackerConfig.sensor_orientation = bodyTrackingSettings.sensorOrientation;
-		this->trackerConfig.gpu_device_id = bodyTrackingSettings.gpuDeviceID;
+			// Generate tracker config.
+			this->trackerConfig.sensor_orientation = bodyTrackingSettings.sensorOrientation;
+			this->trackerConfig.gpu_device_id = bodyTrackingSettings.gpuDeviceID;
 
-		// Set update flags.
-		this->bUpdateColor = deviceSettings.updateColor;
-		this->bUpdateIr = deviceSettings.updateIr;
-		this->bUpdateWorld = deviceSettings.updateWorld;
-		this->bUpdateVbo = deviceSettings.updateWorld && deviceSettings.updateVbo;
-
+			// Set update flags.
+			this->bUpdateColor = deviceSettings.updateColor;
+			this->bUpdateIr = deviceSettings.updateIr;
+			this->bUpdateWorld = deviceSettings.updateWorld;
+			this->bUpdateVbo = deviceSettings.updateWorld && deviceSettings.updateVbo;
+		}
 		this->bUpdateBodies = bodyTrackingSettings.updateBodies;
 
 		// Get calibration.
-		try
+		if (bPlayback)
 		{
-			this->calibration = this->device.get_calibration(this->config.depth_mode, this->config.color_resolution);
+			auto calibration_handle = playback->getCalibration();
+			this->calibration.depth_camera_calibration = calibration_handle.depth_camera_calibration;
+			this->calibration.color_camera_calibration = calibration_handle.color_camera_calibration;
+			this->calibration.depth_mode = calibration_handle.depth_mode;
+			this->calibration.color_resolution = calibration_handle.color_resolution;
+
+			for (int i = 0; i < 4; i++)
+			{
+				for (int j = 0; j < 4; j++)
+					this->calibration.extrinsics[i][j] = calibration_handle.extrinsics[i][j];
+			}
 		}
-		catch (const k4a::error& e)
+		else
 		{
-			ofLogError(__FUNCTION__) << e.what();
-			return false;
+			try
+			{
+				this->calibration = this->device.get_calibration(this->config.depth_mode, this->config.color_resolution);
+			}
+			catch (const k4a::error &e)
+			{
+				ofLogError(__FUNCTION__) << e.what();
+				return false;
+			}
 		}
 
 		if (this->bUpdateColor)
@@ -205,14 +428,8 @@ namespace ofxAzureKinect
 
 		if (this->bUpdateBodies)
 		{
-			// Create tracker.
-			k4abt_tracker_create(&this->calibration, this->trackerConfig, &this->bodyTracker);
-		
-			// Add joint smoothing parameter listener.
-			this->eventListeners.push(this->jointSmoothing.newListener([this](float &)
-			{
-				k4abt_tracker_set_temporal_smoothing(this->bodyTracker, this->jointSmoothing);
-			}));
+			// Create Body Tracker
+			tracker = BodyTracker(calibration, trackerConfig);
 		}
 
 		if (this->bUpdateWorld)
@@ -228,35 +445,65 @@ namespace ofxAzureKinect
 		}
 
 		// Check compatible sync mode and connection.
-		if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_MASTER && !this->isSyncOutConnected())
-		{
-			ofLogWarning(__FUNCTION__) << "Wired sync mode set to Master but Sync Out not connected! Reverting to Standalone.";
-			this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
-		}
-		else if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_SUBORDINATE && !this->isSyncInConnected())
-		{
-			ofLogWarning(__FUNCTION__) << "Wired sync mode set to Subordinate but Sync In not connected! Reverting to Standalone.";
-			this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
-		}
+		if (!bPlayback) {
+			if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_MASTER && !this->isSyncOutConnected())
+			{
+				ofLogWarning(__FUNCTION__) << "Wired sync mode set to Master but Sync Out not connected! Reverting to Standalone.";
+				this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
+			}
+			else if (this->config.wired_sync_mode == K4A_WIRED_SYNC_MODE_SUBORDINATE && !this->isSyncInConnected())
+			{
+				ofLogWarning(__FUNCTION__) << "Wired sync mode set to Subordinate but Sync In not connected! Reverting to Standalone.";
+				this->config.wired_sync_mode = K4A_WIRED_SYNC_MODE_STANDALONE;
+			}
 
-		if (this->config.wired_sync_mode != K4A_WIRED_SYNC_MODE_SUBORDINATE)
-		{
-			this->config.subordinate_delay_off_master_usec = 0;
+			if (this->config.wired_sync_mode != K4A_WIRED_SYNC_MODE_SUBORDINATE)
+			{
+				this->config.subordinate_delay_off_master_usec = 0;
+			}
 		}
 
 		// Start cameras.
-		try
+		if (bPlayback)
 		{
-			this->device.start_cameras(&this->config);
+			playback->play();
 		}
-		catch (const k4a::error& e)
+		else
 		{
-			ofLogError(__FUNCTION__) << e.what();
-			return false;
+			try
+			{
+				this->device.start_cameras(&this->config);
+			}
+			catch (const k4a::error &e)
+			{
+				ofLogError(__FUNCTION__) << e.what();
+				return false;
+			}
+
+			// Can only start the IMU if cameras are enabled
+			if (this->bEnableIMU)
+			{
+				k4a_device_start_imu(device.handle());
+			}
 		}
 
-		this->startThread();
-		ofAddListener(ofEvents().update, this, &Device::update);
+		if (!bMultiDeviceSyncCapture && bEnableThread) {
+			this->startThread();
+		}
+		else {
+			this->waitForThread();
+		}
+
+		if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_MJPG) {
+			this->decodeThread.start();
+		} 
+		else {
+			this->decodeThread.stop();
+		}
+
+		if (bEnableAutoUpdate) {
+			ofAddListener(ofEvents().update, this, &Device::update);
+		}
 
 		this->bStreaming = true;
 
@@ -265,17 +512,20 @@ namespace ofxAzureKinect
 
 	bool Device::stopCameras()
 	{
-		if (!this->bStreaming) return false;
+		if (!this->bStreaming)
+			return false;
 
 		std::unique_lock<std::mutex> lock(this->mutex);
+		this->decodeThread.stop();
 		this->stopThread();
 		this->condition.notify_all();
 
-		ofRemoveListener(ofEvents().update, this, &Device::update);
-
-		this->eventListeners.unsubscribeAll();
+		if (bEnableAutoUpdate) {
+			ofRemoveListener(ofEvents().update, this, &Device::update);
+		}
 
 		this->depthToWorldImg.reset();
+		this->colorToWorldImg.reset();
 		this->transformation.destroy();
 
 		if (this->bUpdateBodies)
@@ -285,11 +535,67 @@ namespace ofxAzureKinect
 			this->bodyTracker = nullptr;
 		}
 
-		this->device.stop_cameras();
+		if (bPlayback)
+		{
+			playback->stop();
+			playback->close();
+		}
+		else
+		{
+			this->device.stop_cameras();
+		}
+
+		this->frameBack.reset();
+		this->frameSwap.reset();
+		this->frameFront.reset();
+		this->depthToWorldPix.clear();
+		this->colorToWorldPix.clear();
+		this->depthTex.clear();
+		this->colorTex.clear();
+		this->irTex.clear();
+		this->depthToWorldTex.clear();
+		this->colorToWorldTex.clear();
+		this->depthInColorTex.clear();
+		this->colorInDepthTex.clear();
+		this->bodyIndexTex.clear();
+		this->pointCloudVbo.clear();
 
 		this->bStreaming = false;
 
 		return true;
+	}
+
+	void Device::update()
+	{
+		if (!bEnableThread && !bMultiDeviceSyncCapture) {
+			this->updatePixels();
+
+			if (this->lock()) {
+				this->frameBack.swapFrame(this->frameSwap);
+				this->bNewBuffer = true;
+				this->unlock();
+			}
+		}
+
+		this->bNewFrame = false;
+
+		if (this->bNewBuffer)
+		{
+			if (this->decodeThread.isThreadRunning()) {
+				auto ret = this->decodeThread.update(this->frameSwap.colorPix, this->frameSwap.colorPixDeviceTime);
+				if (ret) {
+					this->frameSwap.bColorPixUpdated = true;
+				}
+			}
+			if (this->lock()) {
+				this->frameSwap.swapFrame(this->frameFront);
+				this->frameFront.bColorPixUpdated = false;
+				this->bNewBuffer = false;
+				this->unlock();
+			}
+			this->updateTextures();
+			this->condition.notify_all();
+		}
 	}
 
 	bool Device::isSyncInConnected() const
@@ -306,66 +612,99 @@ namespace ofxAzureKinect
 	{
 		while (this->isThreadRunning())
 		{
-			std::unique_lock<std::mutex> lock(this->mutex);
+			// During recording, do not wait for render thread, not to drop frames.
+			if (!this->bRecording || this->bAsyncJpegDecode) {
+				std::unique_lock<std::mutex> lock(this->mutex);
+				while (this->isThreadRunning() && this->texFrameNum != this->pixFrameNum)
+				{
+					this->condition.wait(lock);
+				}
+			}
+			this->updatePixels();
 
-			while (this->isThreadRunning() && this->texFrameNum != this->pixFrameNum)
-			{
-				this->condition.wait(lock);
+			if (this->lock()) {
+				this->frameBack.swapFrame(this->frameSwap);
+				this->bNewBuffer = true;
+				this->unlock();
 			}
 
-			this->updatePixels();
+			std::this_thread::sleep_for(std::chrono::microseconds(100));
 		}
 	}
 
-	void Device::update(ofEventArgs& args)
+	void Device::update(ofEventArgs &args)
 	{
-		this->bNewFrame = false;
-
-		if (this->texFrameNum != this->pixFrameNum)
-		{
-			std::unique_lock<std::mutex> lock(this->mutex);
-
-			this->updateTextures();
-
-			this->condition.notify_all();
-		}
+		this->update();
 	}
 
 	void Device::updatePixels()
 	{
 		// Get a capture.
-		try
+		if (this->bPlayback)
 		{
-			if (!this->device.get_capture(&this->capture, std::chrono::milliseconds(TIMEOUT_IN_MS)))
+			if (playback->isPlaying())
 			{
-				ofLogWarning(__FUNCTION__) << "Timed out waiting for a capture for device " << this->index << "::" << this->serialNumber << ".";
+				capture = k4a::capture(playback->getNextCapture());
+				if (bEnableIMU)
+				{
+					imu_sample = playback->getNextImuSample();
+					// printf(" | Accelerometer temperature:%.2f x:%.4f y:%.4f z: %.4f\n",
+					// 	   imu_sample.temperature,
+					// 	   imu_sample.acc_sample.xyz.x,
+					// 	   imu_sample.acc_sample.xyz.y,
+					// 	   imu_sample.acc_sample.xyz.z);
+				}
+			}
+			else if (playback->isPaused())
+			{
+				playback->seek();
+				capture = k4a::capture(playback->getNextCapture());
+			}
+			else
+			{
+				// if we are stopped, just return
 				return;
 			}
 		}
-		catch (const k4a::error& e)
+		else if (this->bMultiDeviceSyncCapture && master_device_capture != nullptr) {
+		}
+		else
 		{
-			ofLogError(__FUNCTION__) << e.what();
-			return;
+			try
+			{
+				if (!this->device.get_capture(&this->capture, std::chrono::milliseconds(TIMEOUT_IN_MS)))
+				{
+					ofLogWarning(__FUNCTION__) << "Timed out waiting for a capture for device " << this->index << "::" << this->serialNumber << ".";
+					return;
+				}
+			}
+			catch (const k4a::error &e)
+			{
+				ofLogError(__FUNCTION__) << e.what();
+				return;
+			}
 		}
 
 		// Probe for a depth16 image.
+		auto& f = this->frameBack;
 		auto depthImg = this->capture.get_depth_image();
 		if (depthImg)
 		{
 			const auto depthDims = glm::ivec2(depthImg.get_width_pixels(), depthImg.get_height_pixels());
-			if (!depthPix.isAllocated())
+			if (!f.depthPix.isAllocated())
 			{
-				this->depthPix.allocate(depthDims.x, depthDims.y, 1);
+				f.depthPix.allocate(depthDims.x, depthDims.y, 1);
 			}
 
-			const auto depthData = reinterpret_cast<uint16_t*>(depthImg.get_buffer());
-			this->depthPix.setFromPixels(depthData, depthDims.x, depthDims.y, 1);
+			const auto depthData = reinterpret_cast<uint16_t *>(depthImg.get_buffer());
+			f.depthPix.setFromPixels(depthData, depthDims.x, depthDims.y, 1);
+			f.depthPixDeviceTime = depthImg.get_device_timestamp();
 
 			ofLogVerbose(__FUNCTION__) << "Capture Depth16 " << depthDims.x << "x" << depthDims.y << " stride: " << depthImg.get_stride_bytes() << ".";
 		}
 		else
 		{
-			ofLogWarning(__FUNCTION__) << "No Depth16 capture found (" << ofGetFrameNum() << ")!";
+			ofLogWarning(__FUNCTION__) << "No Depth16 capture found!";
 		}
 
 		k4a::image colorImg;
@@ -376,34 +715,50 @@ namespace ofxAzureKinect
 			if (colorImg)
 			{
 				const auto colorDims = glm::ivec2(colorImg.get_width_pixels(), colorImg.get_height_pixels());
-				if (!colorPix.isAllocated())
+				if (!f.colorPix.isAllocated())
 				{
-					this->colorPix.allocate(colorDims.x, colorDims.y, OF_PIXELS_BGRA);
+					f.colorPix.allocate(colorDims.x, colorDims.y, OF_PIXELS_BGRA);
 				}
 
 				if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_MJPG)
 				{
-					const int decompressStatus = tjDecompress2(this->jpegDecompressor,
-						colorImg.get_buffer(),
-						static_cast<unsigned long>(colorImg.get_size()),
-						this->colorPix.getData(),
-						colorDims.x,
-						0, // pitch
-						colorDims.y,
-						TJPF_BGRA,
-						TJFLAG_FASTDCT | TJFLAG_FASTUPSAMPLE);
+					// during recording, jpeg decode task is dispatched to another thread, not to drop recording frames.
+					if (this->bRecording || this->bAsyncJpegDecode) {
+						JpegTask task;
+						task.colorPixBuf.set((const char*)colorImg.get_buffer(), colorImg.get_size());
+						task.colorPixDeviceTime = colorImg.get_device_timestamp();
+						this->decodeThread.pushTaskIfEmpty(task);
+						f.bColorPixUpdated = false;
+					}
+					else {
+						const int decompressStatus = tjDecompress2(this->jpegDecompressor,
+							colorImg.get_buffer(),
+							static_cast<unsigned long>(colorImg.get_size()),
+							f.colorPix.getData(),
+							colorDims.x,
+							0, // pitch
+							colorDims.y,
+							TJPF_BGRA,
+							TJFLAG_FASTDCT | TJFLAG_FASTUPSAMPLE);
+						f.bColorPixUpdated = true;
+					}
 				}
 				else
 				{
-					const auto colorData = reinterpret_cast<uint8_t*>(colorImg.get_buffer());
-					this->colorPix.setFromPixels(colorData, colorDims.x, colorDims.y, 4);
+					const auto colorData = reinterpret_cast<uint8_t *>(colorImg.get_buffer());
+					f.colorPix.setFromPixels(colorData, colorDims.x, colorDims.y, 4);
+					f.bColorPixUpdated = true;
+				}
+
+				if (f.bColorPixUpdated) {
+					f.colorPixDeviceTime = colorImg.get_device_timestamp();
 				}
 
 				ofLogVerbose(__FUNCTION__) << "Capture Color " << colorDims.x << "x" << colorDims.y << " stride: " << colorImg.get_stride_bytes() << ".";
 			}
 			else
 			{
-				ofLogWarning(__FUNCTION__) << "No Color capture found (" << ofGetFrameNum() << ")!";
+				ofLogWarning(__FUNCTION__) << "No Color capture found!";
 			}
 		}
 
@@ -415,86 +770,63 @@ namespace ofxAzureKinect
 			if (irImg)
 			{
 				const auto irSize = glm::ivec2(irImg.get_width_pixels(), irImg.get_height_pixels());
-				if (!this->irPix.isAllocated())
+				if (!f.irPix.isAllocated())
 				{
-					this->irPix.allocate(irSize.x, irSize.y, 1);
+					f.irPix.allocate(irSize.x, irSize.y, 1);
 				}
 
-				const auto irData = reinterpret_cast<uint16_t*>(irImg.get_buffer());
-				this->irPix.setFromPixels(irData, irSize.x, irSize.y, 1);
+				const auto irData = reinterpret_cast<uint16_t *>(irImg.get_buffer());
+				f.irPix.setFromPixels(irData, irSize.x, irSize.y, 1);
 
 				ofLogVerbose(__FUNCTION__) << "Capture Ir16 " << irSize.x << "x" << irSize.y << " stride: " << irImg.get_stride_bytes() << ".";
 			}
 			else
 			{
-				ofLogWarning(__FUNCTION__) << "No Ir16 capture found (" << ofGetFrameNum() << ")!";
+				ofLogWarning(__FUNCTION__) << "No Ir16 capture found!";
 			}
 		}
 
 		if (this->bUpdateBodies)
 		{
-			k4a_wait_result_t enqueueResult = k4abt_tracker_enqueue_capture(this->bodyTracker, this->capture.handle(), K4A_WAIT_INFINITE);
-			if (enqueueResult == K4A_WAIT_RESULT_FAILED)
-			{
-				ofLogError(__FUNCTION__) << "Failed adding capture to tracker process queue!";
-			}
-			else
-			{
-				k4abt_frame_t bodyFrame = nullptr;
-				k4a_wait_result_t popResult = k4abt_tracker_pop_result(this->bodyTracker, &bodyFrame, K4A_WAIT_INFINITE);
-				if (popResult == K4A_WAIT_RESULT_SUCCEEDED)
-				{
-					// Probe for a body index map image.
-					k4a::image bodyIndexImg = k4abt_frame_get_body_index_map(bodyFrame);
-					const auto bodyIndexSize = glm::ivec2(bodyIndexImg.get_width_pixels(), bodyIndexImg.get_height_pixels());
-					if (!this->bodyIndexPix.isAllocated())
-					{
-						this->bodyIndexPix.allocate(bodyIndexSize.x, bodyIndexSize.y, 1);
-					}
-
-					const auto bodyIndexData = reinterpret_cast<uint8_t*>(bodyIndexImg.get_buffer());
-					this->bodyIndexPix.setFromPixels(bodyIndexData, bodyIndexSize.x, bodyIndexSize.y, 1);
-
-					ofLogVerbose(__FUNCTION__) << "Capture BodyIndex " << bodyIndexSize.x << "x" << bodyIndexSize.y << " stride: " << bodyIndexImg.get_stride_bytes() << ".";
-					bodyIndexImg.reset();
-
-					size_t numBodies = k4abt_frame_get_num_bodies(bodyFrame);
-					ofLogVerbose(__FUNCTION__) << numBodies << " bodies found!";
-
-					this->bodySkeletons.resize(numBodies);
-					this->bodyIDs.resize(numBodies);
-					for (size_t i = 0; i < numBodies; i++)
-					{
-						k4abt_skeleton_t skeleton;
-						k4abt_frame_get_body_skeleton(bodyFrame, i, &skeleton);
-						this->bodySkeletons[i] = skeleton;
-						uint32_t id = k4abt_frame_get_body_id(bodyFrame, i);
-						this->bodyIDs[i] = id;
-					}
-
-					// Release body frame once we're finished.
-					k4abt_frame_release(bodyFrame);
-				}
-			}
+			tracker.update(capture.handle());
 		}
 
 		if (this->bUpdateVbo)
 		{
 			if (this->bUpdateColor)
 			{
-				this->updatePointsCache(colorImg, this->colorToWorldImg);
+				this->updatePointsCache(depthImg, depthToWorldImg); //(colorImg, this->colorToWorldImg);
 			}
 			else
 			{
-				this->updatePointsCache(depthImg, this->depthToWorldImg);
+				this->updatePointsCache(depthImg, depthToWorldImg);
 			}
 		}
 
-		if (colorImg && this->bUpdateColor && this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
+		if (colorImg && this->bUpdateColor && (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32 || (!bRecording && !bAsyncJpegDecode)))
 		{
-			// TODO: Fix this for non-BGRA formats, maybe always keep a BGRA k4a::image around.
-			this->updateDepthInColorFrame(depthImg, colorImg);
-			this->updateColorInDepthFrame(depthImg, colorImg);
+			if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
+			{
+				// TODO: Fix this for non-BGRA formats, maybe always keep a BGRA k4a::image around.
+				this->updateDepthInColorFrame(depthImg, colorImg);
+				this->updateColorInDepthFrame(depthImg, colorImg);
+			}
+			else
+			{
+				k4a::image bgraColorImg = k4a::image::create_from_buffer(
+					K4A_IMAGE_FORMAT_COLOR_BGRA32, f.colorPix.getWidth(), f.colorPix.getHeight(),
+					f.colorPix.getBytesStride(), f.colorPix.getData(), f.colorPix.size(), nullptr, nullptr);
+				// TODO: Fix this for non-BGRA formats, maybe always keep a BGRA k4a::image around.
+				this->updateDepthInColorFrame(depthImg, bgraColorImg);
+				this->updateColorInDepthFrame(depthImg, bgraColorImg);
+			}
+		}
+
+		// Do any recording before releasing the capture
+		if (this->bRecording)
+		{
+			k4a_capture_t capture_handle = capture.handle();
+			recording->record(&capture_handle);
 		}
 
 		// Release images.
@@ -511,25 +843,26 @@ namespace ofxAzureKinect
 
 	void Device::updateTextures()
 	{
-		if (this->depthPix.isAllocated())
+		auto& f = this->frameFront;
+		if (f.depthPix.isAllocated())
 		{
 			// Update the depth texture.
 			if (!this->depthTex.isAllocated())
 			{
-				this->depthTex.allocate(this->depthPix);
+				this->depthTex.allocate(f.depthPix);
 				this->depthTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 			}
 
-			this->depthTex.loadData(this->depthPix);
+			this->depthTex.loadData(f.depthPix);
 			ofLogVerbose(__FUNCTION__) << "Update Depth16 " << this->depthTex.getWidth() << "x" << this->depthTex.getHeight() << ".";
 		}
 
-		if (this->bUpdateColor && this->colorPix.isAllocated())
+		if (this->bUpdateColor && f.colorPix.isAllocated())
 		{
 			// Update the color texture.
 			if (!this->colorTex.isAllocated())
 			{
-				this->colorTex.allocate(this->colorPix);
+				this->colorTex.allocate(f.colorPix);
 				this->colorTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 
 				if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
@@ -543,59 +876,59 @@ namespace ofxAzureKinect
 				}
 			}
 
-			this->colorTex.loadData(this->colorPix);
+			this->colorTex.loadData(f.colorPix);
 			ofLogVerbose(__FUNCTION__) << "Update Color " << this->colorTex.getWidth() << "x" << this->colorTex.getHeight() << ".";
 		}
 
-		if (this->bUpdateIr && this->irPix.isAllocated())
+		if (this->bUpdateIr && f.irPix.isAllocated())
 		{
 			// Update the IR16 image.
 			if (!this->irTex.isAllocated())
 			{
-				this->irTex.allocate(this->irPix);
+				this->irTex.allocate(f.irPix);
 				this->irTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 				this->irTex.setRGToRGBASwizzles(true);
 			}
 
-			this->irTex.loadData(this->irPix);
+			this->irTex.loadData(f.irPix);
 			ofLogVerbose(__FUNCTION__) << "Update Ir16 " << this->irTex.getWidth() << "x" << this->irTex.getHeight() << ".";
 		}
 
-		if (this->bUpdateBodies && this->bodyIndexPix.isAllocated())
+		if (this->bUpdateBodies && f.bodyIndexPix.isAllocated())
 		{
 			if (!this->bodyIndexTex.isAllocated())
 			{
-				this->bodyIndexTex.allocate(this->bodyIndexPix);
+				this->bodyIndexTex.allocate(f.bodyIndexPix);
 				this->bodyIndexTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 			}
 
-			this->bodyIndexTex.loadData(this->bodyIndexPix);
+			this->bodyIndexTex.loadData(f.bodyIndexPix);
 		}
 
 		if (this->bUpdateVbo)
 		{
-			this->pointCloudVbo.setVertexData(this->positionCache.data(), this->numPoints, GL_STREAM_DRAW);
-			this->pointCloudVbo.setTexCoordData(this->uvCache.data(), this->numPoints, GL_STREAM_DRAW);
+			this->pointCloudVbo.setVertexData(f.positionCache.data(), f.numPoints, GL_STREAM_DRAW);
+			this->pointCloudVbo.setTexCoordData(f.uvCache.data(), f.numPoints, GL_STREAM_DRAW);
 		}
 
-		if (this->bUpdateColor && this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
+		if (this->bUpdateColor && (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32 || (!bRecording && !bAsyncJpegDecode)))
 		{
-			if (this->depthInColorPix.isAllocated())
+			if (f.depthInColorPix.isAllocated())
 			{
 				if (!this->depthInColorTex.isAllocated())
 				{
-					this->depthInColorTex.allocate(this->depthInColorPix);
+					this->depthInColorTex.allocate(f.depthInColorPix);
 					this->depthInColorTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 				}
 
-				this->depthInColorTex.loadData(this->depthInColorPix);
+				this->depthInColorTex.loadData(f.depthInColorPix);
 			}
 
-			if (this->colorInDepthPix.isAllocated())
+			if (f.colorInDepthPix.isAllocated())
 			{
 				if (!this->colorInDepthTex.isAllocated())
 				{
-					this->colorInDepthTex.allocate(this->colorInDepthPix);
+					this->colorInDepthTex.allocate(f.colorInDepthPix);
 					this->colorInDepthTex.setTextureMinMagFilter(GL_NEAREST, GL_NEAREST);
 					this->colorInDepthTex.bind();
 					{
@@ -605,7 +938,7 @@ namespace ofxAzureKinect
 					this->colorInDepthTex.unbind();
 				}
 
-				this->colorInDepthTex.loadData(this->colorInDepthPix);
+				this->colorInDepthTex.loadData(f.colorInDepthPix);
 			}
 		}
 
@@ -664,9 +997,9 @@ namespace ofxAzureKinect
 		return false;
 	}
 
-	bool Device::setupImageToWorldTable(k4a_calibration_type_t type, k4a::image& img)
+	bool Device::setupImageToWorldTable(k4a_calibration_type_t type, k4a::image &img)
 	{
-		const k4a_calibration_camera_t& calibrationCamera = (type == K4A_CALIBRATION_TYPE_DEPTH) ? this->calibration.depth_camera_calibration : this->calibration.color_camera_calibration;
+		const k4a_calibration_camera_t &calibrationCamera = (type == K4A_CALIBRATION_TYPE_DEPTH) ? this->calibration.depth_camera_calibration : this->calibration.color_camera_calibration;
 
 		const auto dims = glm::ivec2(
 			calibrationCamera.resolution_width,
@@ -675,16 +1008,16 @@ namespace ofxAzureKinect
 		try
 		{
 			img = k4a::image::create(K4A_IMAGE_FORMAT_CUSTOM,
-				dims.x, dims.y,
-				dims.x * static_cast<int>(sizeof(k4a_float2_t)));
+									 dims.x, dims.y,
+									 dims.x * static_cast<int>(sizeof(k4a_float2_t)));
 		}
-		catch (const k4a::error& e)
+		catch (const k4a::error &e)
 		{
 			ofLogError(__FUNCTION__) << e.what();
 			return false;
 		}
 
-		auto imgData = reinterpret_cast<k4a_float2_t*>(img.get_buffer());
+		auto imgData = reinterpret_cast<k4a_float2_t *>(img.get_buffer());
 
 		k4a_float2_t p;
 		k4a_float3_t ray;
@@ -717,7 +1050,8 @@ namespace ofxAzureKinect
 		return true;
 	}
 
-	bool Device::updatePointsCache(k4a::image& frameImg, k4a::image& tableImg)
+	// Kinect Thread function.
+	bool Device::updatePointsCache(k4a::image &frameImg, k4a::image &tableImg)
 	{
 		const auto frameDims = glm::ivec2(frameImg.get_width_pixels(), frameImg.get_height_pixels());
 		const auto tableDims = glm::ivec2(tableImg.get_width_pixels(), tableImg.get_height_pixels());
@@ -727,11 +1061,12 @@ namespace ofxAzureKinect
 			return false;
 		}
 
-		const auto frameData = reinterpret_cast<uint16_t*>(frameImg.get_buffer());
-		const auto tableData = reinterpret_cast<k4a_float2_t*>(tableImg.get_buffer());
+		const auto frameData = reinterpret_cast<uint16_t *>(frameImg.get_buffer());
+		const auto tableData = reinterpret_cast<k4a_float2_t *>(tableImg.get_buffer());
 
-		this->positionCache.resize(frameDims.x * frameDims.y);
-		this->uvCache.resize(frameDims.x * frameDims.y);
+		auto& f = this->frameBack;
+		f.positionCache.resize(frameDims.x * frameDims.y);
+		f.uvCache.resize(frameDims.x * frameDims.y);
 
 		int count = 0;
 		for (int y = 0; y < frameDims.y; ++y)
@@ -743,25 +1078,25 @@ namespace ofxAzureKinect
 					tableData[idx].xy.x != 0 && tableData[idx].xy.y != 0)
 				{
 					float depthVal = static_cast<float>(frameData[idx]);
-					this->positionCache[count] = glm::vec3(
+					f.positionCache[count] = glm::vec3(
 						tableData[idx].xy.x * depthVal,
 						tableData[idx].xy.y * depthVal,
-						depthVal
-					);
+						depthVal);
 
-					this->uvCache[count] = glm::vec2(x, y);
+					f.uvCache[count] = glm::vec2(x, y);
 
 					++count;
 				}
 			}
 		}
 
-		this->numPoints = count;
+		f.numPoints = count;
 
 		return true;
 	}
 
-	bool Device::updateDepthInColorFrame(const k4a::image& depthImg, const k4a::image& colorImg)
+	// Kinect Thread function.
+	bool Device::updateDepthInColorFrame(const k4a::image &depthImg, const k4a::image &colorImg)
 	{
 		const auto colorDims = glm::ivec2(colorImg.get_width_pixels(), colorImg.get_height_pixels());
 
@@ -769,25 +1104,26 @@ namespace ofxAzureKinect
 		try
 		{
 			transformedDepthImg = k4a::image::create(K4A_IMAGE_FORMAT_DEPTH16,
-				colorDims.x, colorDims.y,
-				colorDims.x * static_cast<int>(sizeof(uint16_t)));
+													 colorDims.x, colorDims.y,
+													 colorDims.x * static_cast<int>(sizeof(uint16_t)));
 
 			this->transformation.depth_image_to_color_camera(depthImg, &transformedDepthImg);
 		}
-		catch (const k4a::error& e)
+		catch (const k4a::error &e)
 		{
 			ofLogError(__FUNCTION__) << e.what();
 			return false;
 		}
 
-		const auto transformedColorData = reinterpret_cast<uint16_t*>(transformedDepthImg.get_buffer());
+		const auto transformedColorData = reinterpret_cast<uint16_t *>(transformedDepthImg.get_buffer());
 
-		if (!this->depthInColorPix.isAllocated())
+		auto& f = this->frameBack;
+		if (!f.depthInColorPix.isAllocated())
 		{
-			this->depthInColorPix.allocate(colorDims.x, colorDims.y, 1);
+			f.depthInColorPix.allocate(colorDims.x, colorDims.y, 1);
 		}
 
-		this->depthInColorPix.setFromPixels(transformedColorData, colorDims.x, colorDims.y, 1);
+		f.depthInColorPix.setFromPixels(transformedColorData, colorDims.x, colorDims.y, 1);
 
 		ofLogVerbose(__FUNCTION__) << "Depth in Color " << colorDims.x << "x" << colorDims.y << " stride: " << transformedDepthImg.get_stride_bytes() << ".";
 
@@ -796,7 +1132,8 @@ namespace ofxAzureKinect
 		return true;
 	}
 
-	bool Device::updateColorInDepthFrame(const k4a::image& depthImg, const k4a::image& colorImg)
+	// Kinect Thread function.
+	bool Device::updateColorInDepthFrame(const k4a::image &depthImg, const k4a::image &colorImg)
 	{
 		const auto depthDims = glm::ivec2(depthImg.get_width_pixels(), depthImg.get_height_pixels());
 
@@ -804,26 +1141,27 @@ namespace ofxAzureKinect
 		try
 		{
 			transformedColorImg = k4a::image::create(K4A_IMAGE_FORMAT_COLOR_BGRA32,
-				depthDims.x, depthDims.y,
-				depthDims.x * 4 * static_cast<int>(sizeof(uint8_t)));
+													 depthDims.x, depthDims.y,
+													 depthDims.x * 4 * static_cast<int>(sizeof(uint8_t)));
 
 			this->transformation.color_image_to_depth_camera(depthImg, colorImg, &transformedColorImg);
 		}
-		catch (const k4a::error& e)
+		catch (const k4a::error &e)
 		{
 			ofLogError(__FUNCTION__) << e.what();
 			return false;
 		}
 
-		const auto transformedColorData = reinterpret_cast<uint8_t*>(transformedColorImg.get_buffer());
+		const auto transformedColorData = reinterpret_cast<uint8_t *>(transformedColorImg.get_buffer());
 
-		if (!this->colorInDepthPix.isAllocated())
+		auto& f = this->frameBack;
+		if (!f.colorInDepthPix.isAllocated())
 		{
-			this->colorInDepthPix.allocate(depthDims.x, depthDims.y, OF_PIXELS_BGRA);
+			f.colorInDepthPix.allocate(depthDims.x, depthDims.y, OF_PIXELS_BGRA);
 		}
 
-		this->colorInDepthPix.setFromPixels(transformedColorData, depthDims.x, depthDims.y, 4);
-		
+		f.colorInDepthPix.setFromPixels(transformedColorData, depthDims.x, depthDims.y, 4);
+
 		ofLogVerbose(__FUNCTION__) << "Color in Depth " << depthDims.x << "x" << depthDims.y << " stride: " << transformedColorImg.get_stride_bytes() << ".";
 
 		transformedColorImg.reset();
@@ -846,108 +1184,357 @@ namespace ofxAzureKinect
 		return this->bNewFrame;
 	}
 
-	const std::string& Device::getSerialNumber() const
+	const std::string &Device::getSerialNumber() const
 	{
 		return this->serialNumber;
 	}
 
-	const ofShortPixels& Device::getDepthPix() const
+	const ofShortPixels &Device::getDepthPix() const
 	{
-		return this->depthPix;
+		return this->frameFront.depthPix;
 	}
 
-	const ofTexture& Device::getDepthTex() const
+	const ofTexture &Device::getDepthTex() const
 	{
 		return this->depthTex;
 	}
 
-	const ofPixels& Device::getColorPix() const
+	const ofPixels &Device::getColorPix() const
 	{
-		return this->colorPix;
+		return this->frameFront.colorPix;
 	}
 
-	const ofTexture& Device::getColorTex() const
+	const ofTexture &Device::getColorTex() const
 	{
 		return this->colorTex;
 	}
 
-	const ofShortPixels& Device::getIrPix() const
+	const ofShortPixels &Device::getIrPix() const
 	{
-		return this->irPix;
+		return this->frameFront.irPix;
 	}
 
-	const ofTexture& Device::getIrTex() const
+	const ofTexture &Device::getIrTex() const
 	{
 		return this->irTex;
 	}
 
-	const ofFloatPixels& Device::getDepthToWorldPix() const
+	const ofFloatPixels &Device::getDepthToWorldPix() const
 	{
 		return this->depthToWorldPix;
 	}
 
-	const ofTexture& Device::getDepthToWorldTex() const
+	const ofTexture &Device::getDepthToWorldTex() const
 	{
 		return this->depthToWorldTex;
 	}
 
-	const ofFloatPixels& Device::getColorToWorldPix() const
+	const ofFloatPixels &Device::getColorToWorldPix() const
 	{
 		return this->colorToWorldPix;
 	}
 
-	const ofTexture& Device::getColorToWorldTex() const
+	const ofTexture &Device::getColorToWorldTex() const
 	{
 		return this->colorToWorldTex;
 	}
 
-	const ofShortPixels& Device::getDepthInColorPix() const
+	const ofShortPixels &Device::getDepthInColorPix() const
 	{
-		return this->depthInColorPix;
+		return this->frameFront.depthInColorPix;
 	}
 
-	const ofTexture& Device::getDepthInColorTex() const
+	const ofTexture &Device::getDepthInColorTex() const
 	{
 		return this->depthInColorTex;
 	}
 
-	const ofPixels& Device::getColorInDepthPix() const
+	const ofPixels &Device::getColorInDepthPix() const
 	{
-		return this->colorInDepthPix;
+		return this->frameFront.colorInDepthPix;
 	}
 
-	const ofTexture& Device::getColorInDepthTex() const
+	const ofTexture &Device::getColorInDepthTex() const
 	{
 		return this->colorInDepthTex;
 	}
 
-	const ofPixels& Device::getBodyIndexPix() const
-	{
-		return this->bodyIndexPix;
-	}
-
-	const ofTexture& Device::getBodyIndexTex() const
-	{
-		return this->bodyIndexTex;
-	}
-
-	size_t Device::getNumBodies() const
-	{
-		return this->bodySkeletons.size();
-	}
-
-	const std::vector<k4abt_skeleton_t>& Device::getBodySkeletons() const
-	{
-		return this->bodySkeletons;
-	}
-
-	const std::vector<uint32_t>& Device::getBodyIDs() const
-	{
-		return this->bodyIDs;
-	}
-
-	const ofVbo& Device::getPointCloudVbo() const
+	const ofVbo &Device::getPointCloudVbo() const
 	{
 		return this->pointCloudVbo;
 	}
-}
+
+	int32_t Device::getColorCameraControlValue(k4a_color_control_command_t command) const
+	{
+		k4a_color_control_mode_t mode;
+		int32_t ret;
+		this->device.get_color_control(command, &mode, &ret);
+		if (mode == K4A_COLOR_CONTROL_MODE_AUTO) {
+			return INT_MIN;
+		}
+		else {
+			return ret;
+		}
+	}
+
+	void Device::setColorCameraControlValue(k4a_color_control_command_t command, int32_t value)
+	{
+		this->device.set_color_control(command, K4A_COLOR_CONTROL_MODE_MANUAL, value);
+	}
+
+	int32_t Device::getExposureTimeAbsolute() const
+	{
+		return getColorCameraControlValue(K4A_COLOR_CONTROL_EXPOSURE_TIME_ABSOLUTE);
+	}
+
+	void Device::setExposureTimeAbsolute(int32_t exposure_usec)
+	{
+		setColorCameraControlValue(K4A_COLOR_CONTROL_EXPOSURE_TIME_ABSOLUTE, exposure_usec);
+	}
+
+	void Device::startRecording(std::string filename, float delay)
+	{
+		if (isRecording()) {
+			return;
+		}
+
+		recording = new Record();
+		recording->setup(device.handle(), this->config, bEnableIMU, delay, filename);
+		recording->start();
+
+		bRecording = true;
+	}
+
+	void Device::stopRecording()
+	{
+		if (recording) {
+			recording->stop();
+			delete recording;
+			recording = nullptr;
+		}
+		bRecording = false;
+	}
+
+	bool Device::isRecording() const
+	{
+		return bRecording;
+	}
+
+	float Device::getRecordingTimerDelay()
+	{
+		if (recording != nullptr)
+			return recording->getTimerDelay();
+		else
+			return -1;
+	}
+
+	void Device::listener_playback_play(bool val)
+	{
+		playback->play();
+	}
+	void Device::listener_playback_pause(bool val)
+	{
+		playback->pause();
+	}
+	void Device::listener_playback_stop(bool val)
+	{
+		playback->stop();
+	}
+	void Device::listener_playback_seek(float val)
+	{
+		playback->seek(val);
+	}
+
+
+	void MultiDeviceSyncCapture::setMasterDevice(Device * p)
+	{
+		master_device = p;
+		master_device->bMultiDeviceSyncCapture = true;
+		master_device->master_device_capture = this;
+	}
+	void MultiDeviceSyncCapture::addSubordinateDevice(Device * p)
+	{
+		p->bMultiDeviceSyncCapture = true;
+		p->master_device_capture = this;
+		subordinate_devices.push_back(p);
+	}
+
+	void MultiDeviceSyncCapture::removeAllDevices()
+	{
+		if (master_device != nullptr) {
+			master_device->bMultiDeviceSyncCapture = false;
+			master_device->master_device_capture = nullptr;
+			master_device = nullptr;
+		}
+
+		for (auto &p : subordinate_devices)
+		{
+			p->bMultiDeviceSyncCapture = false;
+			p->master_device_capture = nullptr;
+		}
+		subordinate_devices.clear();
+	}
+
+	void MultiDeviceSyncCapture::start()
+	{
+		if (master_device == nullptr || subordinate_devices.empty()) {
+			cerr << "MultiDeviceSyncCapture::setMasterDevice, addSubordinateDevice must be called before start." << endl;
+			return;
+		}
+		startThread();
+	}
+
+	void MultiDeviceSyncCapture::stop()
+	{
+		waitForThread();
+	}
+
+	void MultiDeviceSyncCapture::setMaxAllowableTimeOffsetUsec(uint32_t usec)
+	{
+		max_allowable_time_offset_error_for_image_timestamp = std::chrono::microseconds(usec);
+	}
+
+	void MultiDeviceSyncCapture::threadedFunction()
+	{
+		while (isThreadRunning()) {
+			// Dealing with the synchronized cameras is complex. The Azure Kinect DK:
+			//      (a) does not guarantee exactly equal timestamps between depth and color or between cameras (delays can
+			//      be configured but timestamps will only be approximately the same)
+			//      (b) does not guarantee that, if the two most recent images were synchronized, that calling get_capture
+			//      just once on each camera will still be synchronized.
+			// There are several reasons for all of this. Internally, devices keep a queue of a few of the captured images
+			// and serve those images as requested by get_capture(). However, images can also be dropped at any moment, and
+			// one device may have more images ready than another device at a given moment, et cetera.
+			//
+			// Also, the process of synchronizing is complex. The cameras are not guaranteed to exactly match in all of
+			// their timestamps when synchronized (though they should be very close). All delays are relative to the master
+			// camera's color camera. To deal with these complexities, we employ a fairly straightforward algorithm. Start
+			// by reading in two captures, then if the camera images were not taken at roughly the same time read a new one
+			// from the device that had the older capture until the timestamps roughly match.
+
+			// The captures used in the loop are outside of it so that they can persist across loop iterations. This is
+			// necessary because each time this loop runs we'll only update the older capture.
+			// The captures are stored in a vector where the first element of the vector is the master capture and
+			// subsequent elements are subordinate captures
+			//std::vector<k4a::capture> captures(subordinate_devices.size() + 1); // add 1 for the master
+			auto devices = subordinate_devices;
+			devices.push_back(master_device);
+
+			size_t current_index = 0;
+			master_device->device.get_capture(&master_device->capture, std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+			++current_index;
+			for (auto &d : subordinate_devices)
+			{
+				d->device.get_capture(&d->capture, std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+				++current_index;
+			}
+
+			bool have_synced_images = false;
+			std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+			while (!have_synced_images)
+			{
+				// Timeout if this is taking too long
+				int64_t duration_ms =
+					std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now() - start).count();
+				if (duration_ms > WAIT_FOR_SYNCHRONIZED_CAPTURE_TIMEOUT)
+				{
+					cerr << "ERROR: Timedout waiting for synchronized captures\n";
+				}
+
+				k4a::image master_color_image = master_device->capture.get_color_image();
+				std::chrono::microseconds master_color_image_time = master_color_image.get_device_timestamp();
+
+				for (size_t i = 0; i < subordinate_devices.size(); ++i)
+				{
+					k4a::image sub_image;
+					if (compare_sub_depth_instead_of_color)
+					{
+						sub_image = subordinate_devices[i]->capture.get_depth_image();
+					}
+					else
+					{
+						sub_image = subordinate_devices[i]->capture.get_color_image();
+					}
+
+					if (master_color_image && sub_image)
+					{
+						std::chrono::microseconds sub_image_time = sub_image.get_device_timestamp();
+						// The subordinate's color image timestamp, ideally, is the master's color image timestamp plus the
+						// delay we configured between the master device color camera and subordinate device color camera
+						std::chrono::microseconds expected_sub_image_time =
+							master_color_image_time +
+							std::chrono::microseconds{ subordinate_devices[i]->config.subordinate_delay_off_master_usec } +
+							std::chrono::microseconds{ subordinate_devices[i]->config.depth_delay_off_color_usec };
+						std::chrono::microseconds sub_image_time_error = sub_image_time - expected_sub_image_time;
+						// The time error's absolute value must be within the permissible range. So, for example, if
+						// MAX_ALLOWABLE_TIME_OFFSET_ERROR_FOR_IMAGE_TIMESTAMP is 2, offsets of -2, -1, 0, 1, and -2 are
+						// permitted
+						if (sub_image_time_error < -max_allowable_time_offset_error_for_image_timestamp)
+						{
+							// Example, where MAX_ALLOWABLE_TIME_OFFSET_ERROR_FOR_IMAGE_TIMESTAMP is 1
+							// time                    t=1  t=2  t=3
+							// actual timestamp        x    .    .
+							// expected timestamp      .    .    x
+							// error: 1 - 3 = -2, which is less than the worst-case-allowable offset of -1
+							// the subordinate camera image timestamp was earlier than it is allowed to be. This means the
+							// subordinate is lagging and we need to update the subordinate to get the subordinate caught up
+							log_lagging_time("sub", master_device->capture, subordinate_devices[i]->capture);
+							subordinate_devices[i]->device.get_capture(&subordinate_devices[i]->capture,
+								std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+							break;
+						}
+						else if (sub_image_time_error > max_allowable_time_offset_error_for_image_timestamp)
+						{
+							// Example, where MAX_ALLOWABLE_TIME_OFFSET_ERROR_FOR_IMAGE_TIMESTAMP is 1
+							// time                    t=1  t=2  t=3
+							// actual timestamp        .    .    x
+							// expected timestamp      x    .    .
+							// error: 3 - 1 = 2, which is more than the worst-case-allowable offset of 1
+							// the subordinate camera image timestamp was later than it is allowed to be. This means the
+							// subordinate is ahead and we need to update the master to get the master caught up
+							log_lagging_time("master", master_device->capture, subordinate_devices[i]->capture);
+							master_device->device.get_capture(&master_device->capture, std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+							break;
+						}
+						else
+						{
+							// These captures are sufficiently synchronized. If we've gotten to the end, then all are
+							// synchronized.
+							if (i == subordinate_devices.size() - 1)
+							{
+								log_synced_image_time(master_device->capture, subordinate_devices[i]->capture);
+								have_synced_images = true; // now we'll finish the for loop and then exit the while loop
+							}
+						}
+					}
+					else if (!master_color_image)
+					{
+						std::cout << "Master image was bad!\n";
+						master_device->device.get_capture(&master_device->capture, std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+						break;
+					}
+					else if (!sub_image)
+					{
+						std::cout << "Subordinate image was bad!" << endl;
+						subordinate_devices[i]->device.get_capture(&subordinate_devices[i]->capture,
+							std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+						break;
+					}
+				}
+			}
+			// if we've made it to here, it means that we have synchronized captures.
+			for (auto& device : devices) {
+				device->updatePixels();
+			}
+			for (auto& device : devices) {
+				if (device->lock()) {
+					device->frameBack.swapFrame(device->frameSwap);
+					device->bNewBuffer = true;
+					device->unlock();
+				}
+			}
+
+			std::this_thread::sleep_for(std::chrono::microseconds(100));
+		}
+	}
+} // namespace ofxAzureKinect

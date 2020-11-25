@@ -4,8 +4,8 @@
 
 #include "ofxAzureKinect.h"
 
-class ofApp 
-	: public ofBaseApp 
+class ofApp
+	: public ofBaseApp
 {
 public:
 	void setup();
@@ -31,8 +31,11 @@ private:
 
 	ofEasyCam camera;
 
-	ofVbo pointsVbo;
-	ofShader shader;
+	bool streaming = true;
 
-	ofVboMesh skeletonMesh;
+	// Playback Params
+	string filename;
+	bool play = false;
+	float play_head = 0;
+
 };

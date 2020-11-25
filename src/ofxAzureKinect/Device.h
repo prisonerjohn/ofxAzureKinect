@@ -15,6 +15,9 @@
 #include "ofVectorMath.h"
 
 #include "Types.h"
+#include "Record.h"
+#include "Playback.h"
+#include "BodyTracker.h"
 
 namespace ofxAzureKinect
 {
@@ -36,6 +39,8 @@ namespace ofxAzureKinect
 
 		bool syncImages;
 
+		bool enableIMU;
+
 		DeviceSettings(int idx = 0);
 	};
 
@@ -50,10 +55,71 @@ namespace ofxAzureKinect
 		BodyTrackingSettings();
 	};
 
-	class Device 
+	class MultiDeviceSyncCapture;
+
+	class Device
 		: ofThread
 	{
+	protected:
+		struct Frame
+		{
+			ofShortPixels depthPix;
+			std::chrono::microseconds depthPixDeviceTime;
+
+			ofPixels colorPix;
+			bool bColorPixUpdated = false;
+			std::chrono::microseconds colorPixDeviceTime;
+
+			ofShortPixels irPix;
+			ofShortPixels depthInColorPix;
+			ofPixels colorInDepthPix;
+
+			ofPixels bodyIndexPix;
+			std::vector<k4abt_skeleton_t> bodySkeletons;
+			std::vector<uint32_t> bodyIDs;
+
+			std::vector<glm::vec3> positionCache;
+			std::vector<glm::vec2> uvCache;
+			size_t numPoints;
+
+			void swapFrame(Frame& f);
+			void reset();
+		};
+
+		struct JpegTask
+		{
+			ofBuffer colorPixBuf;
+			std::chrono::microseconds colorPixDeviceTime;
+		};
+
+		struct DecodedPix
+		{
+			ofPixels colorPix;
+			std::chrono::microseconds colorPixDeviceTime;
+		};
+
+		struct JpegDecodeThread : public ofThread
+		{
+		protected:
+			tjhandle jpegDecompressor;
+			ofThreadChannel<JpegTask> toProcess;
+			ofThreadChannel<DecodedPix> processed;
+			void threadedFunction() override;
+
+		public:
+
+			JpegDecodeThread();
+			~JpegDecodeThread();
+
+			void start();
+			void stop();
+
+			bool pushTaskIfEmpty(JpegTask& b);
+			bool update(ofPixels& outPix, std::chrono::microseconds& outTime);
+		} decodeThread;
 	public:
+		friend class MultiDeviceSyncCapture;
+
 		static int getInstalledCount();
 
 	public:
@@ -62,10 +128,14 @@ namespace ofxAzureKinect
 
 		bool open(uint32_t idx = 0);
 		bool open(const std::string& serialNumber);
+
+		bool load(string filename);
 		bool close();
 
 		bool startCameras(DeviceSettings deviceSettings = DeviceSettings(), BodyTrackingSettings bodyTrackingSettings = BodyTrackingSettings());
 		bool stopCameras();
+
+		void update();
 
 		bool isSyncInConnected() const;
 		bool isSyncOutConnected() const;
@@ -74,64 +144,91 @@ namespace ofxAzureKinect
 		bool isStreaming() const;
 		bool isFrameNew() const;
 
-		const std::string& getSerialNumber() const;
+		const std::string &getSerialNumber() const;
 
-		const ofShortPixels& getDepthPix() const;
-		const ofTexture& getDepthTex() const;
+		const ofShortPixels &getDepthPix() const;
+		const ofTexture &getDepthTex() const;
+		const std::chrono::microseconds& getDepthTexDeviceTime() const {
+			return this->frameFront.depthPixDeviceTime;
+		}
 
-		const ofPixels& getColorPix() const;
-		const ofTexture& getColorTex() const;
+		const ofPixels &getColorPix() const;
+		const ofTexture &getColorTex() const;
+		const std::chrono::microseconds& getColorTexDeviceTime() const {
+			return this->frameFront.colorPixDeviceTime;
+		}
 
-		const ofShortPixels& getIrPix() const;
-		const ofTexture& getIrTex() const;
+		const ofShortPixels &getIrPix() const;
+		const ofTexture &getIrTex() const;
 
-		const ofFloatPixels& getDepthToWorldPix() const;
-		const ofTexture& getDepthToWorldTex() const;
+		const ofFloatPixels &getDepthToWorldPix() const;
+		const ofTexture &getDepthToWorldTex() const;
 
-		const ofFloatPixels& getColorToWorldPix() const;
-		const ofTexture& getColorToWorldTex() const;
+		const ofFloatPixels &getColorToWorldPix() const;
+		const ofTexture &getColorToWorldTex() const;
 
-		const ofShortPixels& getDepthInColorPix() const;
-		const ofTexture& getDepthInColorTex() const;
+		const ofShortPixels &getDepthInColorPix() const;
+		const ofTexture &getDepthInColorTex() const;
 
-		const ofPixels& getColorInDepthPix() const;
-		const ofTexture& getColorInDepthTex() const;
+		const ofPixels &getColorInDepthPix() const;
+		const ofTexture &getColorInDepthTex() const;
 
-		const ofPixels& getBodyIndexPix() const;
-		const ofTexture& getBodyIndexTex() const;
+		const ofVbo &getPointCloudVbo() const;
 
-		size_t getNumBodies() const;
-		const std::vector<k4abt_skeleton_t>& getBodySkeletons() const;
-		const std::vector<uint32_t>& getBodyIDs() const;
+		BodyTracker *getBodyTracker() { return &tracker; }
 
-		const ofVbo& getPointCloudVbo() const;
+		int32_t getColorCameraControlValue(k4a_color_control_command_t command) const;
+		void setColorCameraControlValue(k4a_color_control_command_t command, int32_t value);
 
+		int32_t getExposureTimeAbsolute() const;
+		void setExposureTimeAbsolute(int32_t exposure_usec);
+
+		void startRecording(std::string filename = "", float delay = 0.0f);
+		void stopRecording();
+		bool isRecording() const;
+
+		bool isAsyncJpegDecode() const { return this->bAsyncJpegDecode; }
+		void setAsyncJpegDecode(bool b) { this->bAsyncJpegDecode = b; }
+
+		bool isEnableAutoUpdate() const { return this->bEnableAutoUpdate; }
+		void setEnableAutoUpdate(bool b) { this->bEnableAutoUpdate = b; }
+
+		bool isEnableThread() const { return this->bEnableThread; }
+		void setEnableThread(bool b) { this->bEnableThread = b; }
 	public:
-		ofParameter<float> jointSmoothing{ "Joint Smoothing", 0.0f, 0.0f, 1.0f };
+		float getRecordingTimerDelay();
+		ofParameter<bool> play{"play", false};
+		ofParameter<bool> pause{"pause", false};
+		ofParameter<bool> stop{"stop", false};
+		ofParameter<float> seek{"Seek", 0.0f, 0.0f, 1.0f};
+
+		Playback* getPlayback() {return this->playback; }
+		Record* getRecord() { return this->recording; }
 
 	protected:
-		void threadedFunction() override;
+		virtual void threadedFunction() override;
 
-	private:
-		void updatePixels();
-		void updateTextures();
+		virtual void updatePixels();
+		virtual void updateTextures();
 
-		void update(ofEventArgs& args);
+		virtual void update(ofEventArgs &args);
 
 		bool setupDepthToWorldTable();
 		bool setupColorToWorldTable();
-		bool setupImageToWorldTable(k4a_calibration_type_t type, k4a::image& img);
+		bool setupImageToWorldTable(k4a_calibration_type_t type, k4a::image &img);
 
-		bool updatePointsCache(k4a::image& frameImg, k4a::image& tableImg);
+		bool updatePointsCache(k4a::image &frameImg, k4a::image &tableImg);
 
-		bool updateDepthInColorFrame(const k4a::image& depthImg, const k4a::image& colorImg);
-		bool updateColorInDepthFrame(const k4a::image& depthImg, const k4a::image& colorImg);
+		bool updateDepthInColorFrame(const k4a::image &depthImg, const k4a::image &colorImg);
+		bool updateColorInDepthFrame(const k4a::image &depthImg, const k4a::image &colorImg);
 
-	private:
+	protected:
 		int index;
 		bool bOpen;
 		bool bStreaming;
-		bool bNewFrame;
+		bool bPlayback;
+		bool bRecording;
+		bool bEnableIMU;
 
 		bool bUpdateColor;
 		bool bUpdateIr;
@@ -139,9 +236,17 @@ namespace ofxAzureKinect
 		bool bUpdateWorld;
 		bool bUpdateVbo;
 
+		bool bMultiDeviceSyncCapture;
+		bool bAsyncJpegDecode;
+		bool bEnableAutoUpdate;
+		bool bEnableThread;
+
 		std::condition_variable condition;
 		uint64_t pixFrameNum;
 		uint64_t texFrameNum;
+
+		bool bNewBuffer;
+		bool bNewFrame;
 
 		std::string serialNumber;
 
@@ -156,39 +261,74 @@ namespace ofxAzureKinect
 
 		tjhandle jpegDecompressor;
 
-		ofShortPixels depthPix;
-		ofTexture depthTex;
+		k4a_imu_sample_t imu_sample;
 
-		ofPixels colorPix;
-		ofTexture colorTex;
+		// triple buffer
+		Frame frameBack;
+		Frame frameSwap;
+		Frame frameFront;
 
-		ofShortPixels irPix;
-		ofTexture irTex;
-
+		// these are thread safe
 		k4a::image depthToWorldImg;
 		ofFloatPixels depthToWorldPix;
-		ofTexture depthToWorldTex;
-
 		k4a::image colorToWorldImg;
 		ofFloatPixels colorToWorldPix;
+
+		ofTexture depthTex;
+		ofTexture colorTex;
+		ofTexture irTex;
+		ofTexture depthToWorldTex;
 		ofTexture colorToWorldTex;
-
-		ofShortPixels depthInColorPix;
 		ofTexture depthInColorTex;
-
-		ofPixels colorInDepthPix;
 		ofTexture colorInDepthTex;
-
-		ofPixels bodyIndexPix;
 		ofTexture bodyIndexTex;
-		std::vector<k4abt_skeleton_t> bodySkeletons;
-		std::vector<uint32_t> bodyIDs;
-
-		std::vector<glm::vec3> positionCache;
-		std::vector<glm::vec2> uvCache;
-		size_t numPoints;
 		ofVbo pointCloudVbo;
 
 		ofEventListeners eventListeners;
+
+		BodyTracker tracker;
+
+		Record *recording;
+		Playback *playback;
+		void listener_playback_play(bool val);
+		void listener_playback_pause(bool val);
+		void listener_playback_stop(bool val);
+		void listener_playback_seek(float val);
+
+		MultiDeviceSyncCapture* master_device_capture = nullptr;
 	};
-}
+
+	// reference implementation
+	// https://github.com/microsoft/Azure-Kinect-Sensor-SDK/blob/develop/examples/green_screen/MultiDeviceCapturer.h
+	//
+	// Note  for use this class.
+	//   device firmware version must be matched and latest.
+	//   set manual exposure time to shorter, for acquiring correct sync.
+	//   more info on : https://github.com/microsoft/Azure-Kinect-Sensor-SDK/issues/1261
+	//
+	// Not sophisticated implementation.
+	class MultiDeviceSyncCapture : public ofThread
+	{
+	protected:
+		friend class Device;
+		Device* master_device = nullptr;
+		std::vector<Device*> subordinate_devices;
+		bool compare_sub_depth_instead_of_color = false;
+		std::chrono::microseconds max_allowable_time_offset_error_for_image_timestamp = std::chrono::microseconds(1000);
+	public:
+
+		// these funcs must be called before Device::startCameras();
+		void setMasterDevice(Device* p);
+		void addSubordinateDevice(Device* p);
+
+		void removeAllDevices();
+
+		void start();
+		void stop();
+
+		void setMaxAllowableTimeOffsetUsec(uint32_t usec);
+
+	protected:
+		void threadedFunction() override;
+	};
+} // namespace ofxAzureKinect
