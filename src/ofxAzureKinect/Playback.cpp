@@ -81,7 +81,7 @@ namespace ofxAzureKinect
 	{
 		b_seek_by_device_time = false;
 		seek_head = amt;
-		int play_head = int(ofMap(seek_head, 0, 1, 0, recording_length, true));
+		int64_t play_head = int64_t(ofMap(seek_head, 0, 1, 0, recording_length, true));
 
 		// Seek to 10 seconds from the start
 		if (k4a_playback_seek_timestamp(playback, play_head, K4A_PLAYBACK_SEEK_BEGIN) != K4A_RESULT_SUCCEEDED)
@@ -91,7 +91,7 @@ namespace ofxAzureKinect
 		}
 	}
 
-	void Playback::seekByDeviceTime(uint32_t device_usec)
+	void Playback::seekByDeviceTime(int64_t device_usec)
 	{
 		b_seek_by_device_time = true;
 		last_seek_device_usec = device_usec;
