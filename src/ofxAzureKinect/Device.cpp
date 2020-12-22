@@ -292,6 +292,36 @@ namespace ofxAzureKinect
 		return true;
 	}
 
+	bool Device::startRecording(std::string filepath)
+	{
+		if (this->isRecording())
+		{
+			this->stopRecording();
+		}
+
+		if (filepath.empty())
+		{
+			filepath = "k4a_" + ofGetTimestampString("%Y%m%d_%H%M%S") + ".mkv";
+		}
+
+		if (this->recorder.open(this->device, this->config, filepath))
+		{
+			this->bRecording = true;
+		}
+
+		return this->bRecording;
+	}
+
+	bool Device::stopRecording()
+	{
+		if (!this->isRecording()) return false;
+
+		this->recorder.close();
+		this->bRecording = false;
+
+		return this->bRecording;
+	}
+
 	bool Device::isSyncInConnected() const
 	{
 		return this->device.is_sync_in_connected();
@@ -495,6 +525,11 @@ namespace ofxAzureKinect
 			// TODO: Fix this for non-BGRA formats, maybe always keep a BGRA k4a::image around.
 			this->updateDepthInColorFrame(depthImg, colorImg);
 			this->updateColorInDepthFrame(depthImg, colorImg);
+		}
+
+		if (this->bRecording)
+		{
+			this->recorder.writeCapture(this->capture);
 		}
 
 		// Release images.
@@ -844,6 +879,11 @@ namespace ofxAzureKinect
 	bool Device::isFrameNew() const
 	{
 		return this->bNewFrame;
+	}
+
+	bool Device::isRecording() const
+	{
+		return this->recorder.isOpen() && this->bRecording;
 	}
 
 	const std::string& Device::getSerialNumber() const

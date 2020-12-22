@@ -18,7 +18,7 @@ meta:
 	ADDON_NAME = ofxAzureKinect
 	ADDON_DESCRIPTION = Use Azure Kinect inside openFrameworks.
 	ADDON_AUTHOR = Elie Zananiri
-	ADDON_TAGS = "computer vision" "3D sensing" "kinect"
+	ADDON_TAGS = "computer vision" "3D sensing" "kinect" "azure"
 	ADDON_URL = https://github.com/prisonerjohn/ofxAzureKinect
 
 common:
@@ -64,6 +64,7 @@ vs:
 	ADDON_INCLUDES += $(AZUREKINECT_SDK)\sdk\include
 	ADDON_INCLUDES += $(AZUREKINECT_BODY_SDK)\sdk\include
 	ADDON_LIBS += $(AZUREKINECT_SDK)\sdk\windows-desktop\amd64\release\lib\k4a.lib
+	ADDON_LIBS += $(AZUREKINECT_SDK)\sdk\windows-desktop\amd64\release\lib\k4arecord.lib
 	ADDON_LIBS += $(AZUREKINECT_BODY_SDK)\sdk\windows-desktop\amd64\release\lib\k4abt.lib
 	
 linux64: 
@@ -71,6 +72,7 @@ linux64:
 	ADDON_INCLUDES += /usr/include/k4a
 	ADDON_LIBS += /usr/lib/libk4abt.so
 	ADDON_LIBS += /usr/lib/x86_64-linux-gnu/libk4a.so
+	ADDON_LIBS += /usr/lib/x86_64-linux-gnu/libk4arecord.so
 	ADDON_LIBS += /opt/libjpeg-turbo/lib64/libturbojpeg.a
 
 linux:

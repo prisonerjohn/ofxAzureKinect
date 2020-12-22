@@ -14,6 +14,7 @@
 #include "ofVboMesh.h"
 #include "ofVectorMath.h"
 
+#include "Recorder.h"
 #include "Types.h"
 
 namespace ofxAzureKinect
@@ -67,12 +68,16 @@ namespace ofxAzureKinect
 		bool startCameras(DeviceSettings deviceSettings = DeviceSettings(), BodyTrackingSettings bodyTrackingSettings = BodyTrackingSettings());
 		bool stopCameras();
 
+		bool startRecording(std::string filepath = "");
+		bool stopRecording();
+
 		bool isSyncInConnected() const;
 		bool isSyncOutConnected() const;
 
 		bool isOpen() const;
 		bool isStreaming() const;
 		bool isFrameNew() const;
+		bool isRecording() const;
 
 		const std::string& getSerialNumber() const;
 
@@ -132,6 +137,7 @@ namespace ofxAzureKinect
 		bool bOpen;
 		bool bStreaming;
 		bool bNewFrame;
+		bool bRecording;
 
 		bool bUpdateColor;
 		bool bUpdateIr;
@@ -153,6 +159,8 @@ namespace ofxAzureKinect
 
 		k4abt_tracker_configuration_t trackerConfig;
 		k4abt_tracker_t bodyTracker;
+
+		Recorder recorder;
 
 		tjhandle jpegDecompressor;
 
