@@ -37,7 +37,7 @@ namespace ofxAzureKinect
 
 		bool syncImages;
 
-		DeviceSettings(int idx = 0);
+		DeviceSettings();
 	};
 
 	struct BodyTrackingSettings
@@ -52,7 +52,7 @@ namespace ofxAzureKinect
 	};
 
 	class Device 
-		: ofThread
+		: public ofThread
 	{
 	public:
 		static int getInstalledCount();
