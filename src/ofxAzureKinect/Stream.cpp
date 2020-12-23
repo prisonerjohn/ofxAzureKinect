@@ -7,11 +7,18 @@ namespace ofxAzureKinect
 		, bStreaming(false)
 		, bNewFrame(false)
 		, serialNumber("")
+		, pixFrameNum(0)
+		, texFrameNum(0)
+		, bUpdateColor(false)
+		, bUpdateIr(false)
+		, bUpdateWorld(false)
+		, bUpdateVbo(false)
+		, jpegDecompressor(tjInitDecompress())
 	{}
 
 	Stream::~Stream()
 	{
-
+		tjDestroy(jpegDecompressor);
 	}
 
 	bool Stream::setupDepthToWorldTable()
@@ -608,5 +615,10 @@ namespace ofxAzureKinect
 	const ofTexture& Stream::getColorInDepthTex() const
 	{
 		return this->colorInDepthTex;
+	}
+
+	const ofVbo& Stream::getPointCloudVbo() const
+	{
+		return this->pointCloudVbo;
 	}
 }

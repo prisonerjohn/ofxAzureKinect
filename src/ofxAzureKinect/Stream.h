@@ -1,6 +1,8 @@
 #pragma once
 
+#include <mutex>
 #include <string>
+
 #include <k4a/k4a.hpp>
 #include <turbojpeg.h>
 
@@ -9,6 +11,7 @@
 #include "ofTexture.h"
 #include "ofThread.h"
 #include "ofVbo.h"
+#include "ofVectorMath.h"
 
 #include "Types.h"
 
@@ -57,6 +60,8 @@ namespace ofxAzureKinect
 
 		const ofPixels& getColorInDepthPix() const;
 		const ofTexture& getColorInDepthTex() const;
+
+		const ofVbo& getPointCloudVbo() const;
 
 	protected:
 		virtual bool setupDepthToWorldTable();
