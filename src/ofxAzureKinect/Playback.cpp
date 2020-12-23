@@ -13,6 +13,8 @@ namespace ofxAzureKinect
 	Playback::Playback()
 		: Stream()
 		, bUpdateDepth(true)
+		, bLoops(true)
+		, lastFrameSecs(0)
 		, duration(0)
 	{
 
@@ -99,6 +101,8 @@ namespace ofxAzureKinect
 	
 		this->bLoops = playbackSettings.autoloop;
 
+		this->lastFrameSecs = 0;
+
 		if (this->bUpdateDepth && this->bUpdateColor)
 		{
 			// Create transformation.
@@ -148,6 +152,7 @@ namespace ofxAzureKinect
 		try
 		{
 			this->playback.seek_timestamp(std::chrono::microseconds(usecs), K4A_PLAYBACK_SEEK_BEGIN);
+			this->lastFrameSecs = 0;
 		}
 		catch (const k4a::error& e)
 		{
@@ -160,10 +165,18 @@ namespace ofxAzureKinect
 
 	bool Playback::updateCapture()
 	{
+		float nextFrameSecs = lastFrameSecs + 1 / static_cast<float>(this->getFramerate());
+		if (ofGetElapsedTimef() < nextFrameSecs)
+		{
+			// Not ready for another frame yet.
+			return false;
+		}
+
 		try
 		{
 			if (this->playback.get_next_capture(&this->capture))
 			{
+				lastFrameSecs = ofGetElapsedTimef();
 				return true;
 			}
 			else if (this->bLoops)

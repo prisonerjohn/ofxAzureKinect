@@ -65,8 +65,8 @@ void ofApp::draw()
 		<< "APP: " << ofGetFrameRate() << " FPS" << std::endl
 		<< "K4A: " << (bPlayback ? fpsPlayback.getFps() : fpsDevice.getFps()) << " FPS" << std::endl
 		<< std::endl
-		<< "[TAB] : toggle mode" << std::endl
-		<< "[SPACE] : " << (bPlayback ? "open file" : "toggle recording");
+		<< "[TAB] toggle mode" << std::endl
+		<< "[SPACE] " << (bPlayback ? "open file" : "toggle recording");
 	ofDrawBitmapStringHighlight(oss.str(), 10, 20);
 }
 

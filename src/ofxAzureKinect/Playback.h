@@ -60,6 +60,7 @@ namespace ofxAzureKinect
 		bool bUpdateDepth;
 		bool bLoops;
 
+		float lastFrameSecs;
 		std::chrono::microseconds duration;
 
 		k4a_record_configuration_t config;
