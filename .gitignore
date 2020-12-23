@@ -106,3 +106,9 @@ Desktop.ini
 *.log
 *.sql
 *.sqlite
+
+# Project files
+*.sln
+*.vcxproj
+*vcxproj.*
+icon.rc
