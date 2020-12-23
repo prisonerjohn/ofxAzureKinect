@@ -14,6 +14,12 @@ public:
 	void update();
 	void draw();
 
+	void openDevice();
+	void closeDevice();
+
+	void openPlayback();
+	void closePlayback();
+
 	void keyPressed(int key);
 	void keyReleased(int key);
 	void mouseMoved(int x, int y);
@@ -28,5 +34,12 @@ public:
 
 private:
 	ofxAzureKinect::Device kinectDevice;
-	ofFpsCounter kinectFps;
+	ofFpsCounter fpsDevice;
+
+	ofxAzureKinect::Playback kinectPlayback;
+	ofFpsCounter fpsPlayback;
+
+	bool bRecord;
+	bool bPlayback;
+	std::string filename;
 };

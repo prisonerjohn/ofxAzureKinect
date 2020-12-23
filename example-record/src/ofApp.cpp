@@ -7,28 +7,30 @@ void ofApp::setup()
 
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
-	if (this->kinectDevice.open())
-	{
-		auto kinectSettings = ofxAzureKinect::DeviceSettings();
-		kinectSettings.colorResolution = ofxAzureKinect::ColorResolution::K4A_COLOR_RESOLUTION_720P;
-		kinectSettings.syncImages = false;
-		kinectSettings.updateWorld = false;
-		this->kinectDevice.startCameras(kinectSettings);
-	}
+	bRecord = false;
+	bPlayback = false;
+	filename = "";
+
+	openDevice();
 }
 
 //--------------------------------------------------------------
 void ofApp::exit()
 {
-	this->kinectDevice.close();
+	kinectDevice.close();
+	kinectPlayback.close();
 }
 
 //--------------------------------------------------------------
 void ofApp::update()
 {
-	if (this->kinectDevice.isFrameNew())
+	if (kinectDevice.isFrameNew())
 	{
-		this->kinectFps.newFrame();
+		fpsDevice.newFrame();
+	}
+	if (kinectPlayback.isFrameNew())
+	{
+		fpsPlayback.newFrame();
 	}
 }
 
@@ -37,26 +39,113 @@ void ofApp::draw()
 {
 	ofBackground(128);
 
-	if (this->kinectDevice.isStreaming())
+	if (bPlayback)
 	{
-		this->kinectDevice.getColorTex().draw(0, 0, 1280, 720);
-		this->kinectDevice.getDepthTex().draw(1280, 0, 360, 360);
-		this->kinectDevice.getIrTex().draw(1280, 360, 360, 360);
+		if (kinectPlayback.isStreaming())
+		{
+			kinectPlayback.getColorTex().draw(0, 0, 1280, 720);
+			kinectPlayback.getDepthTex().draw(1280, 0, 360, 360);
+			kinectPlayback.getIrTex().draw(1280, 360, 360, 360);
+		}
+	}
+	else
+	{
+		if (kinectDevice.isStreaming())
+		{
+			kinectDevice.getColorTex().draw(0, 0, 1280, 720);
+			kinectDevice.getDepthTex().draw(1280, 0, 360, 360);
+			kinectDevice.getIrTex().draw(1280, 360, 360, 360);
+		}
 	}
 
 	std::ostringstream oss;
 	oss << std::fixed << std::setprecision(2)
+		<< (bPlayback ? "PLAYBACK" : "DEVICE") << std::endl
+		<< std::endl
 		<< "APP: " << ofGetFrameRate() << " FPS" << std::endl
-		<< "K4A: " << kinectFps.getFps() << " FPS";
+		<< "K4A: " << (bPlayback ? fpsPlayback.getFps() : fpsDevice.getFps()) << " FPS" << std::endl
+		<< std::endl
+		<< "[TAB] : toggle mode" << std::endl
+		<< "[SPACE] : " << (bPlayback ? "open file" : "toggle recording");
 	ofDrawBitmapStringHighlight(oss.str(), 10, 20);
+}
+
+//--------------------------------------------------------------
+void ofApp::openDevice()
+{
+	// Close the playback stream.
+	closePlayback();
+
+	// Open and start the live device stream.
+	if (kinectDevice.open())
+	{
+		auto deviceSettings = ofxAzureKinect::DeviceSettings();
+		deviceSettings.colorResolution = ofxAzureKinect::ColorResolution::K4A_COLOR_RESOLUTION_720P;
+		deviceSettings.syncImages = false;
+		deviceSettings.updateWorld = false;
+		kinectDevice.startCameras(deviceSettings);
+	}
+}
+
+//--------------------------------------------------------------
+void ofApp::closeDevice()
+{
+	kinectDevice.close();
+}
+
+//--------------------------------------------------------------
+void ofApp::openPlayback()
+{
+	// Select a video file to play.
+	auto result = ofSystemLoadDialog("Select an MKV Kinect recorder file:");
+	if (result.bSuccess)
+	{
+		// Close the live device stream.
+		closeDevice();
+
+		// Close the playback stream.
+		closePlayback();
+
+		// Open and start the playback stream.
+		filename = result.fileName;
+		if (kinectPlayback.open(result.filePath))
+		{
+			auto playbackSettings = ofxAzureKinect::PlaybackSettings();
+			kinectPlayback.startPlayback(playbackSettings);
+		}
+		else
+		{
+			ofLogError(__FUNCTION__) << "Could not open file " << filename;
+		}
+	}
+}
+
+//--------------------------------------------------------------
+void ofApp::closePlayback()
+{
+	kinectPlayback.close();
 }
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key)
 {
+	if (key == OF_KEY_TAB)
+	{
+		bPlayback = !bPlayback;
+		bPlayback ? openPlayback() : openDevice();
+		bRecord = false;
+	}
 	if (key == ' ')
 	{
-		this->kinectDevice.isRecording() ? this->kinectDevice.stopRecording() : this->kinectDevice.startRecording();
+		if (bPlayback)
+		{
+			openPlayback();
+		}
+		else
+		{
+			bRecord = !bRecord;
+			bRecord ? kinectDevice.startRecording() : kinectDevice.stopRecording();
+		}
 	}
 }
 
