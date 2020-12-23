@@ -124,9 +124,11 @@ namespace ofxAzureKinect
 	{
 		if (!this->bStreaming) return false;
 
-		return this->stopStreaming();
+		this->stopStreaming();
 
 		this->transformation.destroy();
+
+		return true;
 	}
 
 	bool Playback::seekPct(float pct)
@@ -195,11 +197,6 @@ namespace ofxAzureKinect
 		std::string value = "";
 		this->playback.get_tag(name.c_str(), &value);
 		return value;
-	}
-
-	bool Playback::isOpen() const
-	{
-		return this->bOpen;
 	}
 
 	DepthMode Playback::getDepthMode() const

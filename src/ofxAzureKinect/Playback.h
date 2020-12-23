@@ -1,11 +1,12 @@
 #pragma once
 
+#include <chrono>
+#include <string>
+
 #include <k4arecord/playback.hpp>
 
-#include "ofParameter.h"
-#include "ofThread.h"
-
 #include "Stream.h"
+#include "Types.h"
 
 namespace ofxAzureKinect
 {
@@ -39,8 +40,6 @@ namespace ofxAzureKinect
 		bool seekUsecs(long long usecs);
 
 		std::string readTag(const std::string& name);
-
-		bool isOpen() const;
 
 		DepthMode getDepthMode() const override;
 		ImageFormat getColorFormat() const override;

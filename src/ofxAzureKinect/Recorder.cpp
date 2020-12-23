@@ -3,6 +3,7 @@
 namespace ofxAzureKinect
 {
 	Recorder::Recorder()
+		: bOpen(false)
 	{
 
 	}
