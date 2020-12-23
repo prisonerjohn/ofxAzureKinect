@@ -53,6 +53,8 @@ Tested with:
 
 ## Examples
 
+Use the OF Project Generator to create the example project files. If everything is installed correctly, it should properly locate all required include and library files.
+
 * `example-streams` demonstrates how to get depth, color, infrared textures from the device.
 * `example-pointCloud` demonstrates how to draw the basic point cloud VBO from the device.
 * `example-shader` demonstrates how to reconstruct a point cloud using LUTs in a shader.
