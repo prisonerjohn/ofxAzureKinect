@@ -132,6 +132,7 @@ namespace ofxAzureKinect
 	{
 		if (!this->bOpen) return false;
 
+		this->stopRecording();
 		this->stopCameras();
 
 		this->device.close();
