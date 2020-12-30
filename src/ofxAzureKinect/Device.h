@@ -5,7 +5,6 @@
 #include <k4a/k4a.hpp>
 #include <k4abt.h>
 
-#include "ofParameter.h"
 #include "ofPixels.h"
 #include "ofTexture.h"
 
@@ -36,17 +35,6 @@ namespace ofxAzureKinect
 		DeviceSettings();
 	};
 
-	struct BodyTrackingSettings
-	{
-		SensorOrientation sensorOrientation;
-		ProcessingMode processingMode;
-		int32_t gpuDeviceID;
-
-		bool updateBodies;
-
-		BodyTrackingSettings();
-	};
-
 	class Device 
 		: public Stream
 	{
@@ -61,7 +49,7 @@ namespace ofxAzureKinect
 		bool open(const std::string& serialNumber);
 		bool close();
 
-		bool startCameras(DeviceSettings deviceSettings = DeviceSettings(), BodyTrackingSettings bodyTrackingSettings = BodyTrackingSettings());
+		bool startCameras(DeviceSettings deviceSettings = DeviceSettings());
 		bool stopCameras();
 
 		bool startRecording(std::string filepath = "");
@@ -83,42 +71,22 @@ namespace ofxAzureKinect
 
 		bool getSyncImages() const;
 
-		const ofPixels& getBodyIndexPix() const;
-		const ofTexture& getBodyIndexTex() const;
-
-		size_t getNumBodies() const;
-		const std::vector<k4abt_skeleton_t>& getBodySkeletons() const;
-		const std::vector<uint32_t>& getBodyIDs() const;
-
-	public:
-		ofParameter<float> jointSmoothing{ "Joint Smoothing", 0.0f, 0.0f, 1.0f };
+		const Recorder& getRecorder() const;
+		Recorder& Device::getRecorder();
 
 	protected:
 		bool updateCapture() override;
 
 		void updatePixels() override;
-		void updateTextures() override;
 
 	private:
 		int index;
 	
 		bool bRecording;
 
-		bool bUpdateBodies;
-		
 		k4a_device_configuration_t config;
 		k4a::device device;
 		
-		k4abt_tracker_configuration_t trackerConfig;
-		k4abt_tracker_t bodyTracker;
-
 		Recorder recorder;
-
-		ofPixels bodyIndexPix;
-		ofTexture bodyIndexTex;
-		std::vector<k4abt_skeleton_t> bodySkeletons;
-		std::vector<uint32_t> bodyIDs;
-
-		ofEventListeners eventListeners;
 	};
 }

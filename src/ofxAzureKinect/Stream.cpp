@@ -140,6 +140,8 @@ namespace ofxAzureKinect
 	{
 		if (!this->bStreaming) return false;
 
+		this->stopBodyTracker();
+
 		std::unique_lock<std::mutex> lock(this->mutex);
 		this->stopThread();
 		this->condition.notify_all();
@@ -149,6 +151,16 @@ namespace ofxAzureKinect
 		this->bStreaming = false;
 
 		return true;
+	}
+
+	bool Stream::startBodyTracker(BodyTrackerSettings trackerSettings)
+	{
+		return this->bodyTracker.startTracking(this->calibration, trackerSettings);
+	}
+
+	bool Stream::stopBodyTracker()
+	{
+		return this->bodyTracker.stopTracking();
 	}
 
 	void Stream::threadedFunction()
@@ -294,6 +306,11 @@ namespace ofxAzureKinect
 			this->updateColorInDepthFrame(depthImg, colorImg);
 		}
 
+		if (this->bodyTracker.isTracking())
+		{
+			this->bodyTracker.processCapture(this->capture);
+		}
+
 		// Release images.
 		depthImg.reset();
 		colorImg.reset();
@@ -390,6 +407,11 @@ namespace ofxAzureKinect
 
 				this->colorInDepthTex.loadData(this->colorInDepthPix);
 			}
+		}
+
+		if (this->bodyTracker.isTracking())
+		{
+			this->bodyTracker.updateTextures();
 		}
 
 		// Update frame number.
@@ -620,5 +642,40 @@ namespace ofxAzureKinect
 	const ofVbo& Stream::getPointCloudVbo() const
 	{
 		return this->pointCloudVbo;
+	}
+
+	const BodyTracker& Stream::getBodyTracker() const
+	{
+		return this->bodyTracker;
+	}
+
+	BodyTracker& Stream::getBodyTracker()
+	{
+		return this->bodyTracker;
+	}
+
+	const ofPixels& Stream::getBodyIndexPix() const
+	{
+		return this->bodyTracker.getBodyIndexPix();
+	}
+
+	const ofTexture& Stream::getBodyIndexTex() const
+	{
+		return this->bodyTracker.getBodyIndexTex();
+	}
+
+	size_t Stream::getNumBodies() const
+	{
+		return this->bodyTracker.getNumBodies();
+	}
+
+	const std::vector<k4abt_skeleton_t>& Stream::getBodySkeletons() const
+	{
+		return this->bodyTracker.getBodySkeletons();
+	}
+
+	const std::vector<uint32_t>& Stream::getBodyIDs() const
+	{
+		return this->bodyTracker.getBodyIDs();
 	}
 }

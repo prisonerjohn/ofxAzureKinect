@@ -13,6 +13,7 @@
 #include "ofVbo.h"
 #include "ofVectorMath.h"
 
+#include "BodyTracker.h"
 #include "Types.h"
 
 namespace ofxAzureKinect
@@ -23,6 +24,9 @@ namespace ofxAzureKinect
 	public:
 		Stream();
 		virtual ~Stream();
+
+		virtual bool startBodyTracker(BodyTrackerSettings trackerSettings = BodyTrackerSettings());
+		virtual bool stopBodyTracker();
 
 		bool isOpen() const;
 		bool isStreaming() const;
@@ -62,6 +66,16 @@ namespace ofxAzureKinect
 		const ofTexture& getColorInDepthTex() const;
 
 		const ofVbo& getPointCloudVbo() const;
+
+		const BodyTracker& getBodyTracker() const;
+		BodyTracker& getBodyTracker();
+
+		const ofPixels& getBodyIndexPix() const;
+		const ofTexture& getBodyIndexTex() const;
+
+		size_t getNumBodies() const;
+		const std::vector<k4abt_skeleton_t>& getBodySkeletons() const;
+		const std::vector<uint32_t>& getBodyIDs() const;
 
 	protected:
 		virtual bool setupDepthToWorldTable();
@@ -107,6 +121,8 @@ namespace ofxAzureKinect
 		k4a::capture capture;
 
 		tjhandle jpegDecompressor;
+
+		BodyTracker bodyTracker;
 
 		ofShortPixels depthPix;
 		ofTexture depthTex;

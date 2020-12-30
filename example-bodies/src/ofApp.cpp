@@ -7,20 +7,22 @@ void ofApp::setup()
 
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
-	auto deviceSettings = ofxAzureKinect::DeviceSettings();
-	deviceSettings.syncImages = false;
-	deviceSettings.depthMode = K4A_DEPTH_MODE_NFOV_UNBINNED;
-	deviceSettings.updateIr = false;
-	deviceSettings.updateColor = false;
-	//deviceSettings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
-	deviceSettings.updateWorld = true;
-	deviceSettings.updateVbo = false;
-	auto bodyTrackingSettings = ofxAzureKinect::BodyTrackingSettings();
-	//bodyTrackingSettings.processingMode = K4ABT_TRACKER_PROCESSING_MODE_CPU;
-	bodyTrackingSettings.updateBodies = true;
 	if (this->kinectDevice.open())
 	{
-		this->kinectDevice.startCameras(deviceSettings, bodyTrackingSettings);
+		auto deviceSettings = ofxAzureKinect::DeviceSettings();
+		deviceSettings.syncImages = false;
+		deviceSettings.depthMode = K4A_DEPTH_MODE_NFOV_UNBINNED;
+		deviceSettings.updateIr = false;
+		deviceSettings.updateColor = false;
+		//deviceSettings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
+		deviceSettings.updateWorld = true;
+		deviceSettings.updateVbo = false;
+		this->kinectDevice.startCameras(deviceSettings);
+	
+		auto bodyTrackerSettings = ofxAzureKinect::BodyTrackerSettings();
+		bodyTrackerSettings.sensorOrientation = K4ABT_SENSOR_ORIENTATION_DEFAULT;
+		//bodyTrackerSettings.processingMode = K4ABT_TRACKER_PROCESSING_MODE_CPU;
+		this->kinectDevice.startBodyTracker(bodyTrackerSettings);
 	}
 
 	// Load shader.
@@ -211,7 +213,7 @@ void ofApp::draw()
 
 	std::ostringstream oss;
 	oss << ofToString(ofGetFrameRate(), 2) + " FPS" << std::endl;
-	oss << "Joint Smoothing: " << this->kinectDevice.jointSmoothing;
+	oss << "Joint Smoothing: " << this->kinectDevice.getBodyTracker().jointSmoothing;
 	ofDrawBitmapStringHighlight(oss.str(), 10, 20);
 }
 
@@ -235,7 +237,7 @@ void ofApp::mouseDragged(int x, int y, int button)
 {
 	if (button == 1)
 	{
-		this->kinectDevice.jointSmoothing = ofMap(x, 0, ofGetWidth(), 0.0f, 1.0f, true);
+		this->kinectDevice.getBodyTracker().jointSmoothing = ofMap(x, 0, ofGetWidth(), 0.0f, 1.0f, true);
 	}
 }
 
