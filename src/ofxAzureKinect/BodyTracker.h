@@ -1,7 +1,7 @@
 #pragma once
 
 #include <k4a/k4a.hpp>
-#include <k4abt.h>
+#include <k4abt.hpp>
 
 #include "ofParameter.h"
 #include "ofPixels.h"
@@ -70,7 +70,7 @@ namespace ofxAzureKinect
 		bool bUpdateBodiesImage;
 
 		k4abt_tracker_configuration_t trackerConfig;
-		k4abt_tracker_t bodyTracker;
+		k4abt::tracker bodyTracker;
 
 		k4a_calibration_type_t imageType;
 

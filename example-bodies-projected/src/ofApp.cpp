@@ -47,17 +47,12 @@ void ofApp::draw()
 
 	if (kinectDevice.isStreaming())
 	{
-		// Scale down the 2D drawings.
-		static const float kTargetWidth = ofGetWidth();
-		const auto texSize = glm::vec2(kinectDevice.getBodyIndexTex().getWidth(), kinectDevice.getBodyIndexTex().getHeight());
-		const auto texScale = kTargetWidth / texSize.x;
-
 		// Draw the body index texture. 
 		// The pixels are not black, their color equals the body ID which is just a low number.
-		kinectDevice.getBodyIndexTex().draw(0, 0, texSize.x * texScale, texSize.y * texScale);
+		kinectDevice.getBodyIndexTex().draw(0, 0);
 
 		// Draw the projected joints onto the image.
-		const auto skeletons = kinectDevice.getBodySkeletons();
+		const auto& skeletons = kinectDevice.getBodySkeletons();
 		for (int i = 0; i < skeletons.size(); ++i)
 		{
 			for (int j = 0; j < K4ABT_JOINT_COUNT; ++j)
@@ -75,7 +70,7 @@ void ofApp::draw()
 					ofSetColor(ofColor::red);
 					break;
 				}
-				ofDrawCircle(skeletons[i].joints[j].projPos * texScale, 5.0f);
+				ofDrawCircle(skeletons[i].joints[j].projPos, 5.0f);
 			}
 		}
 		ofSetColor(ofColor::white);

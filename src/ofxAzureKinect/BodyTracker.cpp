@@ -13,8 +13,7 @@ namespace ofxAzureKinect
 	{}
 
 	BodyTracker::BodyTracker()
-		: bodyTracker(nullptr)
-		, bTracking(false)
+		: bTracking(false)
 		, imageType(K4A_CALIBRATION_TYPE_DEPTH)
 		, bUpdateBodyIndex(false)
 		, bUpdateBodiesWorld(false)
@@ -34,13 +33,21 @@ namespace ofxAzureKinect
 		this->trackerConfig.sensor_orientation = settings.sensorOrientation;
 		this->trackerConfig.gpu_device_id = settings.gpuDeviceID;
 
-		// Create tracker.
-		k4abt_tracker_create(&calibration, this->trackerConfig, &this->bodyTracker);
+		try
+		{
+			// Create tracker.
+			this->bodyTracker = k4abt::tracker::create(calibration, this->trackerConfig);
+		}
+		catch (const k4a::error& e)
+		{
+			ofLogError(__FUNCTION__) << e.what();
+			return false;
+		}
 
 		// Add joint smoothing parameter listener.
 		this->eventListeners.push(this->jointSmoothing.newListener([this](float&)
 		{
-			k4abt_tracker_set_temporal_smoothing(this->bodyTracker, this->jointSmoothing);
+			this->bodyTracker.set_temporal_smoothing(this->jointSmoothing);
 		}));
 
 		// Save update flags.
@@ -63,9 +70,8 @@ namespace ofxAzureKinect
 		this->bodyIndexPix.clear();
 		this->bodyIndexTex.clear();
 
-		k4abt_tracker_shutdown(this->bodyTracker);
-		k4abt_tracker_destroy(this->bodyTracker);
-		this->bodyTracker = nullptr;
+		this->bodyTracker.shutdown();
+		this->bodyTracker.destroy();
 
 		this->bTracking = false;
 
@@ -74,104 +80,93 @@ namespace ofxAzureKinect
 
 	void BodyTracker::processCapture(const k4a::capture& capture, const k4a::calibration& calibration, const k4a::transformation& transformation, const k4a::image& depthImg)
 	{
-		k4a_wait_result_t enqueueResult = k4abt_tracker_enqueue_capture(this->bodyTracker, capture.handle(), K4A_WAIT_INFINITE);
-		if (enqueueResult == K4A_WAIT_RESULT_FAILED)
+		if (!this->bodyTracker.enqueue_capture(capture))
 		{
 			ofLogError(__FUNCTION__) << "Failed adding capture to tracker process queue!";
+			return;
 		}
-		else
+		
+		k4abt::frame bodyFrame = this->bodyTracker.pop_result();
+		if (bodyFrame == nullptr)
 		{
-			k4abt_frame_t bodyFrame = nullptr;
-			k4a_wait_result_t popResult = k4abt_tracker_pop_result(this->bodyTracker, &bodyFrame, K4A_WAIT_INFINITE);
-			if (popResult == K4A_WAIT_RESULT_SUCCEEDED)
+			ofLogError(__FUNCTION__) << "Failed processing capture!";
+			return;
+		}
+
+		if (this->bUpdateBodyIndex)
+		{
+			// Probe for a body index map image.
+			k4a::image bodyIndexImg = bodyFrame.get_body_index_map();
+
+			if (this->imageType == K4A_CALIBRATION_TYPE_COLOR)
 			{
-				if (this->bUpdateBodyIndex)
+				try
 				{
-					// Probe for a body index map image.
-					k4a::image bodyIndexImg = k4abt_frame_get_body_index_map(bodyFrame);
+					k4a::image transformedBodyIndexImg = transformation.depth_image_to_color_camera_custom(depthImg, bodyIndexImg,
+						K4A_TRANSFORMATION_INTERPOLATION_TYPE_NEAREST, K4ABT_BODY_INDEX_MAP_BACKGROUND).second;
 
-					if (this->imageType == K4A_CALIBRATION_TYPE_DEPTH)
-					{
-						const auto bodyIndexDims = glm::ivec2(bodyIndexImg.get_width_pixels(), bodyIndexImg.get_height_pixels());
-						if (!this->bodyIndexPix.isAllocated())
-						{
-							this->bodyIndexPix.allocate(bodyIndexDims.x, bodyIndexDims.y, 1);
-						}
+					// Swap body index image with transformed version.
+					bodyIndexImg.reset();
+					bodyIndexImg = std::move(transformedBodyIndexImg);
+				}
+				catch (const k4a::error& e)
+				{
+					ofLogError(__FUNCTION__) << e.what();
+				}
+			}
 
-						const auto bodyIndexData = reinterpret_cast<uint8_t*>(bodyIndexImg.get_buffer());
-						this->bodyIndexPix.setFromPixels(bodyIndexData, bodyIndexDims.x, bodyIndexDims.y, 1);
-						ofLogVerbose(__FUNCTION__) << "Capture BodyIndex " << bodyIndexDims.x << "x" << bodyIndexDims.y << " stride: " << bodyIndexImg.get_stride_bytes() << ".";
-					}
-					else // if(this->imageType == K4A_CALIBRATION_TYPE_COLOR)
+			const auto bodyIndexDims = glm::ivec2(bodyIndexImg.get_width_pixels(), bodyIndexImg.get_height_pixels());
+			if (!this->bodyIndexPix.isAllocated())
+			{
+				this->bodyIndexPix.allocate(bodyIndexDims.x, bodyIndexDims.y, 1);
+			}
+
+			const auto bodyIndexData = reinterpret_cast<uint8_t*>(bodyIndexImg.get_buffer());
+			this->bodyIndexPix.setFromPixels(bodyIndexData, bodyIndexDims.x, bodyIndexDims.y, 1);
+			ofLogVerbose(__FUNCTION__) << "Capture BodyIndex " << bodyIndexDims.x << "x" << bodyIndexDims.y << " stride: " << bodyIndexImg.get_stride_bytes() << ".";
+
+			bodyIndexImg.reset();
+		}
+
+		size_t numBodies = bodyFrame.get_num_bodies();
+		ofLogVerbose(__FUNCTION__) << numBodies << " bodies found!";
+
+		if (this->bUpdateBodiesWorld)
+		{
+			this->bodySkeletons.resize(numBodies);
+
+			for (size_t i = 0; i < numBodies; i++)
+			{
+				k4abt_skeleton_t skeleton = bodyFrame.get_body_skeleton(i);
+				uint32_t id = bodyFrame.get_body_id(i);
+
+				this->bodySkeletons[i].id = id;
+						
+				for (size_t j = 0; j < K4ABT_JOINT_COUNT; ++j)
+				{
+					this->bodySkeletons[i].joints[j].position = toGlm(skeleton.joints[j].position);
+					this->bodySkeletons[i].joints[j].orientation = toGlm(skeleton.joints[j].orientation);
+					this->bodySkeletons[i].joints[j].confidenceLevel = skeleton.joints[j].confidence_level;
+
+					if (this->bUpdateBodiesImage)
 					{
 						try
 						{
-							auto transformedBodyIndexImg = transformation.depth_image_to_color_camera_custom(depthImg, bodyIndexImg, 
-								K4A_TRANSFORMATION_INTERPOLATION_TYPE_NEAREST, K4ABT_BODY_INDEX_MAP_BACKGROUND).second;
-							
-							const auto bodyIndexDims = glm::ivec2(transformedBodyIndexImg.get_width_pixels(), transformedBodyIndexImg.get_height_pixels());
-							if (!this->bodyIndexPix.isAllocated())
-							{
-								this->bodyIndexPix.allocate(bodyIndexDims.x, bodyIndexDims.y, 1);
-							}
-
-							const auto bodyIndexData = reinterpret_cast<uint8_t*>(transformedBodyIndexImg.get_buffer());
-							this->bodyIndexPix.setFromPixels(bodyIndexData, bodyIndexDims.x, bodyIndexDims.y, 1);
-							ofLogVerbose(__FUNCTION__) << "Capture BodyIndex " << bodyIndexDims.x << "x" << bodyIndexDims.y << " stride: " << bodyIndexImg.get_stride_bytes() << ".";
-						
-							transformedBodyIndexImg.reset();
+							k4a_float2_t projPos;
+							calibration.convert_3d_to_2d(skeleton.joints[j].position, K4A_CALIBRATION_TYPE_DEPTH, this->imageType, &projPos);
+							this->bodySkeletons[i].joints[j].projPos = toGlm(projPos);
 						}
 						catch (const k4a::error& e)
 						{
 							ofLogError(__FUNCTION__) << e.what();
 						}
 					}
-
-					bodyIndexImg.reset();
 				}
-
-				size_t numBodies = k4abt_frame_get_num_bodies(bodyFrame);
-				ofLogVerbose(__FUNCTION__) << numBodies << " bodies found!";
-
-				if (this->bUpdateBodiesWorld)
-				{
-					this->bodySkeletons.resize(numBodies);
-
-					for (size_t i = 0; i < numBodies; i++)
-					{
-						k4abt_skeleton_t skeleton;
-						k4abt_frame_get_body_skeleton(bodyFrame, i, &skeleton);
-
-						uint32_t id = k4abt_frame_get_body_id(bodyFrame, i);
-						this->bodySkeletons[i].id = id;
-						
-						for (size_t j = 0; j < K4ABT_JOINT_COUNT; ++j)
-						{
-							this->bodySkeletons[i].joints[j].position = toGlm(skeleton.joints[j].position);
-							this->bodySkeletons[i].joints[j].orientation = toGlm(skeleton.joints[j].orientation);
-							this->bodySkeletons[i].joints[j].confidenceLevel = skeleton.joints[j].confidence_level;
-
-							if (this->bUpdateBodiesImage)
-							{
-								try
-								{
-									k4a_float2_t projPos;
-									calibration.convert_3d_to_2d(skeleton.joints[j].position, K4A_CALIBRATION_TYPE_DEPTH, this->imageType, &projPos);
-									this->bodySkeletons[i].joints[j].projPos = toGlm(projPos);
-								}
-								catch (const k4a::error& e)
-								{
-									ofLogError(__FUNCTION__) << e.what();
-								}
-							}
-						}
-					}
-				}
-
-				// Release body frame once we're finished.
-				k4abt_frame_release(bodyFrame);
 			}
 		}
+
+		// Release body frame once we're finished.
+		bodyFrame.reset();
 	}
 
 	void BodyTracker::updateTextures()
