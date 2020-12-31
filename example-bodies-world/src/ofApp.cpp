@@ -22,8 +22,6 @@ void ofApp::setup()
 		auto bodyTrackerSettings = ofxAzureKinect::BodyTrackerSettings();
 		bodyTrackerSettings.sensorOrientation = K4ABT_SENSOR_ORIENTATION_DEFAULT;
 		//bodyTrackerSettings.processingMode = K4ABT_TRACKER_PROCESSING_MODE_CPU;
-		bodyTrackerSettings.imageType = K4A_CALIBRATION_TYPE_COLOR;
-		bodyTrackerSettings.updateBodiesImage = true;
 		kinectDevice.startBodyTracker(bodyTrackerSettings);
 	}
 
@@ -60,30 +58,6 @@ void ofApp::draw()
 {
 	ofBackground(0);
 
-	if (kinectDevice.isStreaming())
-	{
-		// Scale down the 2D drawings.
-		static const float kTargetHeight = 360;
-		const auto texSize = glm::vec2(kinectDevice.getBodyIndexTex().getWidth(), kinectDevice.getBodyIndexTex().getHeight());
-		const auto texScale = kTargetHeight / texSize.y;
-
-		// Draw the body index texture. 
-		// The pixels are not black, their color equals the body ID which is just a low number.
-		kinectDevice.getBodyIndexTex().draw(0, 0, texSize.x * texScale, texSize.y * texScale);
-
-		// Draw the projected joints onto the image.
-		ofSetColor(ofColor::red);
-		for (int i = 0; i < kinectDevice.getNumBodies(); ++i)
-		{
-			const auto joints = kinectDevice.getBodyJointsProjected(i);
-			for (int j = 0; j < joints.size(); ++j)
-			{
-				ofDrawCircle(toGlm(joints[j]) * texScale, 5.0f);
-			}
-		}
-		ofSetColor(ofColor::white);
-	}
-
 	camera.begin();
 	{
 		ofPushMatrix();
@@ -92,12 +66,14 @@ void ofApp::draw()
 
 			ofEnableDepthTest();
 
+			const auto& bodySkeletons = kinectDevice.getBodySkeletons();
+
 			constexpr int kMaxBodies = 6;
 			int bodyIDs[kMaxBodies];
 			int i = 0;
-			while (i < kinectDevice.getNumBodies())
+			while (i < bodySkeletons.size())
 			{
-				bodyIDs[i] = kinectDevice.getBodyIDs()[i];
+				bodyIDs[i] = bodySkeletons[i].id;
 				++i;
 			}
 			while (i < kMaxBodies)
@@ -121,8 +97,7 @@ void ofApp::draw()
 
 			ofDisableDepthTest();
 
-			auto& bodySkeletons = kinectDevice.getBodySkeletons();
-			for (auto& skeleton : bodySkeletons)
+			for (const auto& skeleton : bodySkeletons)
 			{
 				// Draw joints.
 				for (int i = 0; i < K4ABT_JOINT_COUNT; ++i)
@@ -130,10 +105,25 @@ void ofApp::draw()
 					auto joint = skeleton.joints[i];
 					ofPushMatrix();
 					{
-						glm::mat4 transform = glm::translate(toGlm(joint.position)) * glm::toMat4(toGlm(joint.orientation));
+						glm::mat4 transform = glm::translate(joint.position) * glm::toMat4(joint.orientation);
 						ofMultMatrix(transform);
 
 						ofDrawAxis(50.0f);
+
+						if (joint.confidenceLevel >= K4ABT_JOINT_CONFIDENCE_MEDIUM)
+						{
+							ofSetColor(ofColor::green);
+						}
+						else if (joint.confidenceLevel >= K4ABT_JOINT_CONFIDENCE_LOW)
+						{
+							ofSetColor(ofColor::yellow);
+						}
+						else
+						{
+							ofSetColor(ofColor::red);
+						}
+
+						ofDrawSphere(10.0f);
 					}
 					ofPopMatrix();
 				}
