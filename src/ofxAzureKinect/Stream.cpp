@@ -155,6 +155,11 @@ namespace ofxAzureKinect
 
 	bool Stream::startBodyTracker(BodyTrackerSettings trackerSettings)
 	{
+		if (trackerSettings.imageType == K4A_CALIBRATION_TYPE_COLOR && !this->bUpdateColor)
+		{
+			ofLogWarning(__FUNCTION__) << "Cannot map tracker to color because color stream is disabled! Overriding to depth image.";
+			trackerSettings.imageType = K4A_CALIBRATION_TYPE_DEPTH;
+		}
 		return this->bodyTracker.startTracking(this->calibration, trackerSettings);
 	}
 
@@ -308,7 +313,7 @@ namespace ofxAzureKinect
 
 		if (this->bodyTracker.isTracking())
 		{
-			this->bodyTracker.processCapture(this->capture);
+			this->bodyTracker.processCapture(this->capture, this->calibration, this->transformation, depthImg);
 		}
 
 		// Release images.
@@ -677,5 +682,10 @@ namespace ofxAzureKinect
 	const std::vector<uint32_t>& Stream::getBodyIDs() const
 	{
 		return this->bodyTracker.getBodyIDs();
+	}
+
+	const std::vector<k4a_float2_t>& Stream::getBodyJointsProjected(int idx) const
+	{
+		return this->bodyTracker.getBodyJointsProjected(idx);
 	}
 }
