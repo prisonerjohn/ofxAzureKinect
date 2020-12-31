@@ -74,9 +74,7 @@ namespace ofxAzureKinect
 		const ofTexture& getBodyIndexTex() const;
 
 		size_t getNumBodies() const;
-		const std::vector<k4abt_skeleton_t>& getBodySkeletons() const;
-		const std::vector<uint32_t>& getBodyIDs() const;
-		const std::vector<k4a_float2_t>& getBodyJointsProjected(int idx) const;
+		const std::vector<BodySkeleton>& getBodySkeletons() const;
 
 	protected:
 		virtual bool setupDepthToWorldTable();

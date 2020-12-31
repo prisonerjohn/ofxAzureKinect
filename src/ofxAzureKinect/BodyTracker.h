@@ -24,6 +24,21 @@ namespace ofxAzureKinect
 		BodyTrackerSettings();
 	};
 
+	struct BodyJoint
+	{
+		glm::vec3 position;
+		glm::quat orientation;
+		ConfidenceLevel confidenceLevel;
+
+		glm::vec2 projPos;
+	};
+
+	struct BodySkeleton
+	{
+		uint32_t id;
+		BodyJoint joints[K4ABT_JOINT_COUNT];
+	};
+
 	class BodyTracker
 	{
 	public:
@@ -42,9 +57,7 @@ namespace ofxAzureKinect
 		const ofTexture& getBodyIndexTex() const;
 
 		size_t getNumBodies() const;
-		const std::vector<k4abt_skeleton_t>& getBodySkeletons() const;
-		const std::vector<uint32_t>& getBodyIDs() const;
-		const std::vector<k4a_float2_t>& getBodyJointsProjected(int idx) const;
+		const std::vector<BodySkeleton>& getBodySkeletons() const;
 
 	public:
 		ofParameter<float> jointSmoothing{ "Joint Smoothing", 0.0f, 0.0f, 1.0f };
@@ -64,9 +77,7 @@ namespace ofxAzureKinect
 		ofPixels bodyIndexPix;
 		ofTexture bodyIndexTex;
 
-		std::vector<k4abt_skeleton_t> bodySkeletons;
-		std::vector<uint32_t> bodyIDs;
-		std::vector<std::vector<k4a_float2_t>> bodyJointsProjected;
+		std::vector<BodySkeleton> bodySkeletons;
 
 		ofEventListeners eventListeners;
 	};

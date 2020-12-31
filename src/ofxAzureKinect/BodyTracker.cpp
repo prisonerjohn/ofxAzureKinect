@@ -136,29 +136,28 @@ namespace ofxAzureKinect
 				if (this->bUpdateBodiesWorld)
 				{
 					this->bodySkeletons.resize(numBodies);
-					this->bodyIDs.resize(numBodies);
-					if (this->bUpdateBodiesImage)
-					{
-						this->bodyJointsProjected.resize(numBodies);
-					}
 
 					for (size_t i = 0; i < numBodies; i++)
 					{
 						k4abt_skeleton_t skeleton;
 						k4abt_frame_get_body_skeleton(bodyFrame, i, &skeleton);
-						this->bodySkeletons[i] = skeleton;
 
 						uint32_t id = k4abt_frame_get_body_id(bodyFrame, i);
-						this->bodyIDs[i] = id;
-
-						if (this->bUpdateBodiesImage)
+						this->bodySkeletons[i].id = id;
+						
+						for (size_t j = 0; j < K4ABT_JOINT_COUNT; ++j)
 						{
-							this->bodyJointsProjected[i].resize(K4ABT_JOINT_COUNT);
-							for (size_t j = 0; j < K4ABT_JOINT_COUNT; ++j)
+							this->bodySkeletons[i].joints[j].position = toGlm(skeleton.joints[j].position);
+							this->bodySkeletons[i].joints[j].orientation = toGlm(skeleton.joints[j].orientation);
+							this->bodySkeletons[i].joints[j].confidenceLevel = skeleton.joints[j].confidence_level;
+
+							if (this->bUpdateBodiesImage)
 							{
 								try
 								{
-									calibration.convert_3d_to_2d(skeleton.joints[j].position, K4A_CALIBRATION_TYPE_DEPTH, this->imageType, &this->bodyJointsProjected[i][j]);
+									k4a_float2_t projPos;
+									calibration.convert_3d_to_2d(skeleton.joints[j].position, K4A_CALIBRATION_TYPE_DEPTH, this->imageType, &projPos);
+									this->bodySkeletons[i].joints[j].projPos = toGlm(projPos);
 								}
 								catch (const k4a::error& e)
 								{
@@ -209,18 +208,8 @@ namespace ofxAzureKinect
 		return this->bodySkeletons.size();
 	}
 
-	const std::vector<k4abt_skeleton_t>& BodyTracker::getBodySkeletons() const
+	const std::vector<BodySkeleton>& BodyTracker::getBodySkeletons() const
 	{
 		return this->bodySkeletons;
-	}
-
-	const std::vector<uint32_t>& BodyTracker::getBodyIDs() const
-	{
-		return this->bodyIDs;
-	}
-
-	const std::vector<k4a_float2_t>& BodyTracker::getBodyJointsProjected(int idx) const
-	{
-		return this->bodyJointsProjected[idx];
 	}
 }

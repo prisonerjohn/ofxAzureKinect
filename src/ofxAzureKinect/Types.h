@@ -29,4 +29,5 @@ namespace ofxAzureKinect
 
 	typedef k4abt_sensor_orientation_t SensorOrientation;
 	typedef k4abt_tracker_processing_mode_t ProcessingMode;
+	typedef k4abt_joint_confidence_level_t ConfidenceLevel;
 }

@@ -674,18 +674,8 @@ namespace ofxAzureKinect
 		return this->bodyTracker.getNumBodies();
 	}
 
-	const std::vector<k4abt_skeleton_t>& Stream::getBodySkeletons() const
+	const std::vector<BodySkeleton>& Stream::getBodySkeletons() const
 	{
 		return this->bodyTracker.getBodySkeletons();
-	}
-
-	const std::vector<uint32_t>& Stream::getBodyIDs() const
-	{
-		return this->bodyTracker.getBodyIDs();
-	}
-
-	const std::vector<k4a_float2_t>& Stream::getBodyJointsProjected(int idx) const
-	{
-		return this->bodyTracker.getBodyJointsProjected(idx);
 	}
 }
