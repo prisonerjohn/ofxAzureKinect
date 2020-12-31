@@ -275,16 +275,16 @@ namespace ofxAzureKinect
 			irImg = this->capture.get_ir_image();
 			if (irImg)
 			{
-				const auto irSize = glm::ivec2(irImg.get_width_pixels(), irImg.get_height_pixels());
+				const auto irDims = glm::ivec2(irImg.get_width_pixels(), irImg.get_height_pixels());
 				if (!this->irPix.isAllocated())
 				{
-					this->irPix.allocate(irSize.x, irSize.y, 1);
+					this->irPix.allocate(irDims.x, irDims.y, 1);
 				}
 
 				const auto irData = reinterpret_cast<uint16_t*>(irImg.get_buffer());
-				this->irPix.setFromPixels(irData, irSize.x, irSize.y, 1);
+				this->irPix.setFromPixels(irData, irDims.x, irDims.y, 1);
 
-				ofLogVerbose(__FUNCTION__) << "Capture Ir16 " << irSize.x << "x" << irSize.y << " stride: " << irImg.get_stride_bytes() << ".";
+				ofLogVerbose(__FUNCTION__) << "Capture Ir16 " << irDims.x << "x" << irDims.y << " stride: " << irImg.get_stride_bytes() << ".";
 			}
 			else
 			{
