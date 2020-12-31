@@ -8,7 +8,7 @@ namespace ofxAzureKinect
 {
 	DeviceSettings::DeviceSettings()
 		: depthMode(K4A_DEPTH_MODE_WFOV_2X2BINNED)
-		, colorResolution(K4A_COLOR_RESOLUTION_2160P)
+		, colorResolution(K4A_COLOR_RESOLUTION_1080P)
 		, colorFormat(K4A_IMAGE_FORMAT_COLOR_BGRA32)
 		, cameraFps(K4A_FRAMES_PER_SECOND_30)
 		, wiredSyncMode(K4A_WIRED_SYNC_MODE_STANDALONE)
