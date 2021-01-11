@@ -44,6 +44,8 @@ namespace ofxAzureKinect
 		virtual uint32_t getDepthDelayUsec() const = 0;
 		virtual uint32_t getSubordinateDelayUsec() const = 0;
 
+		const k4a::calibration& getCalibration() const;
+
 		const ofShortPixels& getDepthPix() const;
 		const ofTexture& getDepthTex() const;
 

@@ -14,6 +14,7 @@ namespace ofxAzureKinect
 		, bUpdateWorld(false)
 		, bUpdateVbo(false)
 		, jpegDecompressor(tjInitDecompress())
+		, numPoints(0)
 	{}
 
 	Stream::~Stream()
@@ -572,6 +573,11 @@ namespace ofxAzureKinect
 		default:
 			return 30;
 		}
+	}
+
+	const k4a::calibration& Stream::getCalibration() const
+	{
+		return this->calibration;
 	}
 
 	const ofShortPixels& Stream::getDepthPix() const
