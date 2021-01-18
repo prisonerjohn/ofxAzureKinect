@@ -35,6 +35,9 @@ namespace ofxAzureKinect
 		bool startPlayback(PlaybackSettings playbackSettings = PlaybackSettings());
 		bool stopPlayback();
 
+		void setPaused(bool paused);
+		bool isPaused() const;
+
 		bool seekPct(float pct);
 		bool seekSecs(float seconds);
 		bool seekUsecs(long long usecs);
@@ -59,6 +62,7 @@ namespace ofxAzureKinect
 	private:
 		bool bUpdateDepth;
 		bool bLoops;
+		bool bPaused;
 
 		float lastFrameSecs;
 		std::chrono::microseconds duration;

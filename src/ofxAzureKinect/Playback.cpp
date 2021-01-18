@@ -14,6 +14,7 @@ namespace ofxAzureKinect
 		: Stream()
 		, bUpdateDepth(true)
 		, bLoops(true)
+		, bPaused(false)
 		, lastFrameSecs(0)
 		, duration(0)
 	{
@@ -135,6 +136,16 @@ namespace ofxAzureKinect
 		return true;
 	}
 
+	void Playback::setPaused(bool paused)
+	{
+		this->bPaused = paused;
+	}
+
+	bool Playback::isPaused() const
+	{
+		return this->bPaused;
+	}
+
 	bool Playback::seekPct(float pct)
 	{
 		return this->seekUsecs(ofMap(pct, 0, 1, 0, this->getDurationUsecs(), true));
@@ -166,7 +177,7 @@ namespace ofxAzureKinect
 	bool Playback::updateCapture()
 	{
 		float nextFrameSecs = lastFrameSecs + 1 / static_cast<float>(this->getFramerate());
-		if (ofGetElapsedTimef() < nextFrameSecs)
+		if (this->bPaused || ofGetElapsedTimef() < nextFrameSecs)
 		{
 			// Not ready for another frame yet.
 			return false;
