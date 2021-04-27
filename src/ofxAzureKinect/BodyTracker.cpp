@@ -6,6 +6,7 @@ namespace ofxAzureKinect
 		: sensorOrientation(K4ABT_SENSOR_ORIENTATION_DEFAULT)
 		, processingMode(K4ABT_TRACKER_PROCESSING_MODE_GPU)
 		, gpuDeviceID(0)
+		, modelPath("")
 	{}
 
 	bool BodyTracker::startTracking(const k4a::calibration& calibration, BodyTrackerSettings settings)
@@ -15,7 +16,10 @@ namespace ofxAzureKinect
 		// Generate tracker config.
 		this->trackerConfig.sensor_orientation = settings.sensorOrientation;
 		this->trackerConfig.gpu_device_id = settings.gpuDeviceID;
-
+		if (settings.modelPath != "") {
+			ofLogVerbose(__FUNCTION__) << "using body tracking custom model " << settings.modelPath;
+			this->trackerConfig.model_path = settings.modelPath;
+		}
 		// Create tracker.
 		k4abt_tracker_create(&calibration, this->trackerConfig, &this->bodyTracker);
 
@@ -47,7 +51,7 @@ namespace ofxAzureKinect
 
 	void BodyTracker::processCapture(const k4a::capture& capture)
 	{
-		k4a_wait_result_t enqueueResult = k4abt_tracker_enqueue_capture(this->bodyTracker, capture.handle(), K4A_WAIT_INFINITE);
+		k4a_wait_result_t enqueueResult = k4abt_tracker_enqueue_capture(this->bodyTracker, capture.handle(), 0);
 		if (enqueueResult == K4A_WAIT_RESULT_FAILED)
 		{
 			ofLogError(__FUNCTION__) << "Failed adding capture to tracker process queue!";
@@ -55,7 +59,7 @@ namespace ofxAzureKinect
 		else
 		{
 			k4abt_frame_t bodyFrame = nullptr;
-			k4a_wait_result_t popResult = k4abt_tracker_pop_result(this->bodyTracker, &bodyFrame, K4A_WAIT_INFINITE);
+			k4a_wait_result_t popResult = k4abt_tracker_pop_result(this->bodyTracker, &bodyFrame, 0);
 			if (popResult == K4A_WAIT_RESULT_SUCCEEDED)
 			{
 				// Probe for a body index map image.

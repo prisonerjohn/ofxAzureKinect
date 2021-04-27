@@ -16,7 +16,7 @@ namespace ofxAzureKinect
 		SensorOrientation sensorOrientation;
 		ProcessingMode processingMode;
 		int32_t gpuDeviceID;
-
+		char * modelPath;
 		BodyTrackerSettings();
 	};
 
