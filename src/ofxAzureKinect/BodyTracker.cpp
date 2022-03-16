@@ -30,6 +30,7 @@ namespace ofxAzureKinect
 		if (this->bTracking) return false;
 
 		// Generate tracker config.
+		this->trackerConfig = K4ABT_TRACKER_CONFIG_DEFAULT;
 		this->trackerConfig.sensor_orientation = settings.sensorOrientation;
 		this->trackerConfig.gpu_device_id = settings.gpuDeviceID;
 
