@@ -81,13 +81,13 @@ namespace ofxAzureKinect
 
 	void BodyTracker::processCapture(const k4a::capture& capture, const k4a::calibration& calibration, const k4a::transformation& transformation, const k4a::image& depthImg)
 	{
-		if (!this->bodyTracker.enqueue_capture(capture))
+		if (!this->bodyTracker.enqueue_capture(capture, std::chrono::milliseconds(0)))
 		{
 			ofLogError(__FUNCTION__) << "Failed adding capture to tracker process queue!";
 			return;
 		}
 		
-		k4abt::frame bodyFrame = this->bodyTracker.pop_result();
+		k4abt::frame bodyFrame = this->bodyTracker.pop_result(std::chrono::milliseconds(0));
 		if (bodyFrame == nullptr)
 		{
 			ofLogError(__FUNCTION__) << "Failed processing capture!";
