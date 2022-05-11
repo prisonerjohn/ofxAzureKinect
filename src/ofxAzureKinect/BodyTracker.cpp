@@ -31,6 +31,7 @@ namespace ofxAzureKinect
 
 		// Generate tracker config.
 		this->trackerConfig = K4ABT_TRACKER_CONFIG_DEFAULT;
+		this->trackerConfig.processing_mode = K4ABT_TRACKER_PROCESSING_MODE_GPU_CUDA;
 		this->trackerConfig.sensor_orientation = settings.sensorOrientation;
 		this->trackerConfig.gpu_device_id = settings.gpuDeviceID;
 
