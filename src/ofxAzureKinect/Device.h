@@ -58,7 +58,7 @@ namespace ofxAzureKinect
 	class MultiDeviceSyncCapture;
 
 	class Device
-		: ofThread
+		: public ofThread
 	{
 	protected:
 		struct Frame
@@ -135,7 +135,7 @@ namespace ofxAzureKinect
 		bool startCameras(DeviceSettings deviceSettings = DeviceSettings(), BodyTrackingSettings bodyTrackingSettings = BodyTrackingSettings());
 		bool stopCameras();
 
-		void update();
+		virtual void update();
 
 		bool isSyncInConnected() const;
 		bool isSyncOutConnected() const;
