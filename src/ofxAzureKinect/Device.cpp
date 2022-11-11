@@ -338,12 +338,6 @@ namespace ofxAzureKinect
 		}
 		else
 		{
-			// Stop IMU if cameras are enabled
-			if (this->bEnableIMU)
-			{
-				k4a_device_stop_imu(device.handle());
-			}
-
 			this->stopCameras();
 
 			this->device.close();
@@ -473,6 +467,12 @@ namespace ofxAzureKinect
 			try
 			{
 				this->device.start_cameras(&this->config);
+
+				// Can only start the IMU if cameras are enabled
+				if (this->bEnableIMU)
+				{
+					k4a_device_start_imu(device.handle());
+				}
 			}
 			catch (const k4a::error &e)
 			{
@@ -480,11 +480,6 @@ namespace ofxAzureKinect
 				return false;
 			}
 
-			// Can only start the IMU if cameras are enabled
-			if (this->bEnableIMU)
-			{
-				k4a_device_start_imu(device.handle());
-			}
 		}
 
 		if (!bMultiDeviceSyncCapture && bEnableThread) {
@@ -515,9 +510,9 @@ namespace ofxAzureKinect
 		if (!this->bStreaming)
 			return false;
 
-		std::unique_lock<std::mutex> lock(this->mutex);
+		std::unique_lock<std::timed_mutex> lock(this->timed_mtx);
 		this->decodeThread.stop();
-		this->stopThread();
+		this->waitForThread();
 		this->condition.notify_all();
 
 		if (bEnableAutoUpdate) {
@@ -542,6 +537,11 @@ namespace ofxAzureKinect
 		}
 		else
 		{
+			// Stop IMU if cameras are enabled
+			if (this->bEnableIMU)
+			{
+				k4a_device_stop_imu(device.handle());
+			}
 			this->device.stop_cameras();
 		}
 
@@ -615,14 +615,15 @@ namespace ofxAzureKinect
 			// During recording, do not wait for render thread, not to drop frames.
 			if (!this->bRecording || this->bAsyncJpegDecode) {
 				std::unique_lock<std::mutex> lock(this->mutex);
-				while (this->isThreadRunning() && this->texFrameNum != this->pixFrameNum)
+				if (this->isThreadRunning() && this->texFrameNum != this->pixFrameNum)
 				{
-					this->condition.wait(lock);
+					this->condition.wait_for(lock, std::chrono::milliseconds(100));
 				}
 			}
+
 			this->updatePixels();
 
-			if (this->lock()) {
+			if (this->isThreadRunning() && this->tryLockFor(100)) {
 				this->frameBack.swapFrame(this->frameSwap);
 				this->bNewBuffer = true;
 				this->unlock();
@@ -630,6 +631,7 @@ namespace ofxAzureKinect
 
 			std::this_thread::sleep_for(std::chrono::microseconds(100));
 		}
+		cerr << "done thread : " << getThreadName() << endl;
 	}
 
 	void Device::update(ofEventArgs &args)
@@ -1326,6 +1328,27 @@ namespace ofxAzureKinect
 		return bRecording;
 	}
 
+	bool Device::lock()
+	{
+		timed_mtx.lock();
+		return true;
+	}
+
+	bool Device::tryLock()
+	{
+		return timed_mtx.try_lock();
+	}
+
+	bool Device::tryLockFor(uint64_t millisec)
+	{
+		return timed_mtx.try_lock_for(std::chrono::milliseconds(millisec));
+	}
+
+	void Device::unlock()
+	{
+		timed_mtx.unlock();
+	}
+
 	float Device::getRecordingTimerDelay()
 	{
 		if (recording != nullptr)
@@ -1539,7 +1562,7 @@ namespace ofxAzureKinect
 				device->updatePixels();
 			}
 			for (auto& device : devices) {
-				if (device->lock()) {
+				if (device->tryLockFor(100)) {
 					device->frameBack.swapFrame(device->frameSwap);
 					device->bNewBuffer = true;
 					device->unlock();
@@ -1548,5 +1571,6 @@ namespace ofxAzureKinect
 
 			std::this_thread::sleep_for(std::chrono::microseconds(100));
 		}
+		std::cout << "Multi Device Sync Capture thread finished" << endl;
 	}
 } // namespace ofxAzureKinect

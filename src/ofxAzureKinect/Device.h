@@ -197,6 +197,11 @@ namespace ofxAzureKinect
 		void setEnableThread(bool b) { this->bEnableThread = b; }
 
 		k4a_imu_sample_t getIMUSample() const { return imu_sample; }
+
+		bool lock();
+		bool tryLock();
+		bool tryLockFor(uint64_t millisec);
+		void unlock();
 	public:
 		float getRecordingTimerDelay();
 		ofParameter<bool> play{"play", false};
@@ -243,7 +248,8 @@ namespace ofxAzureKinect
 		bool bEnableAutoUpdate;
 		bool bEnableThread;
 
-		std::condition_variable condition;
+		std::timed_mutex timed_mtx;
+		std::condition_variable_any condition;
 		uint64_t pixFrameNum;
 		uint64_t texFrameNum;
 
