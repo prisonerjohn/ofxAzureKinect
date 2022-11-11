@@ -672,7 +672,13 @@ namespace ofxAzureKinect
 		{
 			try
 			{
-				if (!this->device.get_capture(&this->capture, std::chrono::milliseconds(TIMEOUT_IN_MS)))
+				if (this->device.get_capture(&this->capture, std::chrono::milliseconds(TIMEOUT_IN_MS)))
+				{
+					if (bEnableIMU) {
+						this->device.get_imu_sample(&this->imu_sample);
+					}
+				}
+				else
 				{
 					ofLogWarning(__FUNCTION__) << "Timed out waiting for a capture for device " << this->index << "::" << this->serialNumber << ".";
 					return;
@@ -1422,10 +1428,16 @@ namespace ofxAzureKinect
 
 			size_t current_index = 0;
 			master_device->device.get_capture(&master_device->capture, std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+			if (master_device->bEnableIMU) {
+				master_device->device.get_imu_sample(&master_device->imu_sample);
+			}
 			++current_index;
 			for (auto &d : subordinate_devices)
 			{
 				d->device.get_capture(&d->capture, std::chrono::milliseconds{ K4A_WAIT_INFINITE });
+				if (d->bEnableIMU) {
+					d->device.get_imu_sample(&d->imu_sample);
+				}
 				++current_index;
 			}
 

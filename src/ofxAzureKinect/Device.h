@@ -195,6 +195,8 @@ namespace ofxAzureKinect
 
 		bool isEnableThread() const { return this->bEnableThread; }
 		void setEnableThread(bool b) { this->bEnableThread = b; }
+
+		k4a_imu_sample_t getIMUSample() const { return imu_sample; }
 	public:
 		float getRecordingTimerDelay();
 		ofParameter<bool> play{"play", false};
