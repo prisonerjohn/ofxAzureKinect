@@ -612,8 +612,7 @@ namespace ofxAzureKinect
 	{
 		while (this->isThreadRunning())
 		{
-			// During recording, do not wait for render thread, not to drop frames.
-			if (!this->bRecording || this->bAsyncJpegDecode) {
+			if (this->bAsyncJpegDecode) {
 				std::unique_lock<std::mutex> lock(this->mutex);
 				if (this->isThreadRunning() && this->texFrameNum != this->pixFrameNum)
 				{
@@ -730,8 +729,7 @@ namespace ofxAzureKinect
 
 				if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_MJPG)
 				{
-					// during recording, jpeg decode task is dispatched to another thread, not to drop recording frames.
-					if (this->bRecording || this->bAsyncJpegDecode) {
+					if (this->bAsyncJpegDecode) {
 						JpegTask task;
 						task.colorPixBuf.set((const char*)colorImg.get_buffer(), colorImg.get_size());
 						task.colorPixDeviceTime = colorImg.get_device_timestamp();
@@ -811,7 +809,7 @@ namespace ofxAzureKinect
 			}
 		}
 
-		if (colorImg && this->bUpdateColor && (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32 || (!bRecording && !bAsyncJpegDecode)))
+		if (colorImg && this->bUpdateColor && (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32 || (!bAsyncJpegDecode)))
 		{
 			if (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32)
 			{
@@ -919,7 +917,7 @@ namespace ofxAzureKinect
 			this->pointCloudVbo.setTexCoordData(f.uvCache.data(), f.numPoints, GL_STREAM_DRAW);
 		}
 
-		if (this->bUpdateColor && (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32 || (!bRecording && !bAsyncJpegDecode)))
+		if (this->bUpdateColor && (this->config.color_format == K4A_IMAGE_FORMAT_COLOR_BGRA32 || (!bAsyncJpegDecode)))
 		{
 			if (f.depthInColorPix.isAllocated())
 			{
