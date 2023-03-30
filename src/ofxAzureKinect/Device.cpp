@@ -29,6 +29,7 @@ namespace ofxAzureKinect
 	Device::Device()
 		: Stream()
 		, index(-1)
+		, bRecording(false)
 	{}
 
 	Device::~Device()
