@@ -7,27 +7,27 @@ void ofApp::setup()
 
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
-	if (this->kinectDevice.open())
+	if (kinectDevice.open())
 	{
 		auto kinectSettings = ofxAzureKinect::DeviceSettings();
 		kinectSettings.syncImages = false;
 		kinectSettings.updateWorld = false;
-		this->kinectDevice.startCameras(kinectSettings);
+		kinectDevice.startCameras(kinectSettings);
 	}
 }
 
 //--------------------------------------------------------------
 void ofApp::exit()
 {
-	this->kinectDevice.close();
+	kinectDevice.close();
 }
 
 //--------------------------------------------------------------
 void ofApp::update()
 {
-	if (this->kinectDevice.isFrameNew())
+	if (kinectDevice.isFrameNew())
 	{
-		this->kinectFps.newFrame();
+		kinectFps.newFrame();
 	}
 }
 
@@ -36,11 +36,11 @@ void ofApp::draw()
 {
 	ofBackground(128);
 
-	if (this->kinectDevice.isStreaming())
+	if (kinectDevice.isStreaming())
 	{
-		this->kinectDevice.getColorTex().draw(0, 0, 1280, 720);
-		this->kinectDevice.getDepthTex().draw(1280, 0, 360, 360);
-		this->kinectDevice.getIrTex().draw(1280, 360, 360, 360);
+		kinectDevice.getColorTex().draw(0, 0, 1280, 720);
+		kinectDevice.getDepthTex().draw(1280, 0, 360, 360);
+		kinectDevice.getIrTex().draw(1280, 360, 360, 360);
 	}
 
 	std::ostringstream oss;

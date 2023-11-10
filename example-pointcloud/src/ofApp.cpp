@@ -7,21 +7,21 @@ void ofApp::setup()
 
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
-	if (this->kinectDevice.open())
+	if (kinectDevice.open())
 	{
 		auto kinectSettings = ofxAzureKinect::DeviceSettings();
 		kinectSettings.updateIr = false;
 		kinectSettings.updateColor = true;
 		kinectSettings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
 		kinectSettings.updateVbo = true;
-		this->kinectDevice.startCameras(kinectSettings);
+		kinectDevice.startCameras(kinectSettings);
 	}
 }
 
 //--------------------------------------------------------------
 void ofApp::exit()
 {
-	this->kinectDevice.close();
+	kinectDevice.close();
 }
 
 //--------------------------------------------------------------
@@ -35,13 +35,13 @@ void ofApp::draw()
 {
 	ofBackground(128);
 
-	if (this->kinectDevice.isStreaming())
+	if (kinectDevice.isStreaming())
 	{
-		this->cam.begin();
+		cam.begin();
+		ofEnableDepthTest();
 		{
-			ofScale(0.001f);
+			ofDrawAxis(1.0f);
 
-			ofDrawAxis(1000.0f);
 
 			if (this->kinectDevice.getColorInDepthTex().isAllocated())
 			{
@@ -55,10 +55,14 @@ void ofApp::draw()
 				this->kinectDevice.getColorInDepthTex().unbind();
 			}
 		}
-		this->cam.end();
+		ofDisableDepthTest();
+		cam.end();
 	}
 
-	ofDrawBitmapStringHighlight(ofToString(ofGetFrameRate(), 2) + " FPS", 10, 20);
+	std::ostringstream oss;
+	oss << ofToString(ofGetFrameRate(), 2) << " FPS" << std::endl
+		<< kinectDevice.getPointCloudVbo().getNumVertices() << " Points";
+	ofDrawBitmapStringHighlight(oss.str(), 10, 20);
 }
 
 //--------------------------------------------------------------
