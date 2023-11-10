@@ -13,7 +13,9 @@ namespace ofxAzureKinect
 		, bUpdateIr(false)
 		, bUpdateWorld(false)
 		, bUpdateVbo(false)
+		, bForceVboToDepthSize(false)
 		, jpegDecompressor(tjInitDecompress())
+		, numPoints(0)
 	{}
 
 	Stream::~Stream()
@@ -124,6 +126,43 @@ namespace ofxAzureKinect
 		return true;
 	}
 
+	bool Stream::setupTransformationImages()
+	{
+		const auto depthDims = glm::ivec2(
+			this->calibration.depth_camera_calibration.resolution_width,
+			this->calibration.depth_camera_calibration.resolution_height);
+
+		try
+		{
+			this->colorInDepthImg = k4a::image::create(K4A_IMAGE_FORMAT_COLOR_BGRA32,
+				depthDims.x, depthDims.y,
+				depthDims.x * 4 * static_cast<int>(sizeof(uint8_t)));
+		}
+		catch (const k4a::error& e) 
+		{
+			ofLogError(__FUNCTION__) << e.what();
+			return false;
+		}
+
+		const auto colorDims = glm::ivec2(
+			this->calibration.color_camera_calibration.resolution_width,
+			this->calibration.color_camera_calibration.resolution_height);
+
+		try
+		{
+			this->depthInColorImg = k4a::image::create(K4A_IMAGE_FORMAT_DEPTH16,
+				colorDims.x, colorDims.y,
+				colorDims.x * static_cast<int>(sizeof(uint16_t)));
+		}
+		catch (const k4a::error& e)
+		{
+			ofLogError(__FUNCTION__) << e.what();
+			return false;
+		}
+
+		return true;
+	}
+
 	bool Stream::startStreaming()
 	{
 		if (this->bStreaming) return false;
@@ -155,6 +194,11 @@ namespace ofxAzureKinect
 
 	bool Stream::startBodyTracker(BodyTrackerSettings trackerSettings)
 	{
+		if (trackerSettings.imageType == K4A_CALIBRATION_TYPE_COLOR && !this->bUpdateColor)
+		{
+			ofLogWarning(__FUNCTION__) << "Cannot map tracker to color because color stream is disabled! Overriding to depth image.";
+			trackerSettings.imageType = K4A_CALIBRATION_TYPE_DEPTH;
+		}
 		return this->bodyTracker.startTracking(this->calibration, trackerSettings);
 	}
 
@@ -270,32 +314,20 @@ namespace ofxAzureKinect
 			irImg = this->capture.get_ir_image();
 			if (irImg)
 			{
-				const auto irSize = glm::ivec2(irImg.get_width_pixels(), irImg.get_height_pixels());
+				const auto irDims = glm::ivec2(irImg.get_width_pixels(), irImg.get_height_pixels());
 				if (!this->irPix.isAllocated())
 				{
-					this->irPix.allocate(irSize.x, irSize.y, 1);
+					this->irPix.allocate(irDims.x, irDims.y, 1);
 				}
 
 				const auto irData = reinterpret_cast<uint16_t*>(irImg.get_buffer());
-				this->irPix.setFromPixels(irData, irSize.x, irSize.y, 1);
+				this->irPix.setFromPixels(irData, irDims.x, irDims.y, 1);
 
-				ofLogVerbose(__FUNCTION__) << "Capture Ir16 " << irSize.x << "x" << irSize.y << " stride: " << irImg.get_stride_bytes() << ".";
+				ofLogVerbose(__FUNCTION__) << "Capture Ir16 " << irDims.x << "x" << irDims.y << " stride: " << irImg.get_stride_bytes() << ".";
 			}
 			else
 			{
 				ofLogWarning(__FUNCTION__) << "No Ir16 capture found (" << ofGetFrameNum() << ")!";
-			}
-		}
-
-		if (this->bUpdateVbo)
-		{
-			if (this->bUpdateColor)
-			{
-				this->updatePointsCache(colorImg, this->colorToWorldImg);
-			}
-			else
-			{
-				this->updatePointsCache(depthImg, this->depthToWorldImg);
 			}
 		}
 
@@ -306,9 +338,21 @@ namespace ofxAzureKinect
 			this->updateColorInDepthFrame(depthImg, colorImg);
 		}
 
+		if (this->bUpdateVbo)
+		{
+			if (this->bUpdateColor && !this->bForceVboToDepthSize)
+			{
+				this->updatePointsCache(this->depthInColorImg, this->colorToWorldImg);
+			}
+			else
+			{
+				this->updatePointsCache(depthImg, this->depthToWorldImg);
+			}
+		}
+
 		if (this->bodyTracker.isTracking())
 		{
-			this->bodyTracker.processCapture(this->capture);
+			this->bodyTracker.processCapture(this->capture, this->calibration, this->transformation, depthImg);
 		}
 
 		// Release images.
@@ -465,16 +509,9 @@ namespace ofxAzureKinect
 
 	bool Stream::updateDepthInColorFrame(const k4a::image& depthImg, const k4a::image& colorImg)
 	{
-		const auto colorDims = glm::ivec2(colorImg.get_width_pixels(), colorImg.get_height_pixels());
-
-		k4a::image transformedDepthImg;
 		try
 		{
-			transformedDepthImg = k4a::image::create(K4A_IMAGE_FORMAT_DEPTH16,
-				colorDims.x, colorDims.y,
-				colorDims.x * static_cast<int>(sizeof(uint16_t)));
-
-			this->transformation.depth_image_to_color_camera(depthImg, &transformedDepthImg);
+			this->transformation.depth_image_to_color_camera(depthImg, &this->depthInColorImg);
 		}
 		catch (const k4a::error& e)
 		{
@@ -482,34 +519,25 @@ namespace ofxAzureKinect
 			return false;
 		}
 
-		const auto transformedColorData = reinterpret_cast<uint16_t*>(transformedDepthImg.get_buffer());
+		const auto depthInColorData = reinterpret_cast<uint16_t*>(this->depthInColorImg.get_buffer());
 
 		if (!this->depthInColorPix.isAllocated())
 		{
-			this->depthInColorPix.allocate(colorDims.x, colorDims.y, 1);
+			this->depthInColorPix.allocate(this->depthInColorImg.get_width_pixels(), this->depthInColorImg.get_height_pixels(), 1);
 		}
 
-		this->depthInColorPix.setFromPixels(transformedColorData, colorDims.x, colorDims.y, 1);
+		this->depthInColorPix.setFromPixels(depthInColorData, this->depthInColorImg.get_width_pixels(), this->depthInColorImg.get_height_pixels(), 1);
 
-		ofLogVerbose(__FUNCTION__) << "Depth in Color " << colorDims.x << "x" << colorDims.y << " stride: " << transformedDepthImg.get_stride_bytes() << ".";
-
-		transformedDepthImg.reset();
+		ofLogVerbose(__FUNCTION__) << "Depth in Color " << this->depthInColorImg.get_width_pixels() << "x" << this->depthInColorImg.get_height_pixels() << " stride: " << this->depthInColorImg.get_stride_bytes() << ".";
 
 		return true;
 	}
 
 	bool Stream::updateColorInDepthFrame(const k4a::image& depthImg, const k4a::image& colorImg)
 	{
-		const auto depthDims = glm::ivec2(depthImg.get_width_pixels(), depthImg.get_height_pixels());
-
-		k4a::image transformedColorImg;
 		try
 		{
-			transformedColorImg = k4a::image::create(K4A_IMAGE_FORMAT_COLOR_BGRA32,
-				depthDims.x, depthDims.y,
-				depthDims.x * 4 * static_cast<int>(sizeof(uint8_t)));
-
-			this->transformation.color_image_to_depth_camera(depthImg, colorImg, &transformedColorImg);
+			this->transformation.color_image_to_depth_camera(depthImg, colorImg, &this->colorInDepthImg);
 		}
 		catch (const k4a::error& e)
 		{
@@ -517,18 +545,16 @@ namespace ofxAzureKinect
 			return false;
 		}
 
-		const auto transformedColorData = reinterpret_cast<uint8_t*>(transformedColorImg.get_buffer());
+		const auto colorInDepthData = reinterpret_cast<uint8_t*>(this->colorInDepthImg.get_buffer());
 
 		if (!this->colorInDepthPix.isAllocated())
 		{
-			this->colorInDepthPix.allocate(depthDims.x, depthDims.y, OF_PIXELS_BGRA);
+			this->colorInDepthPix.allocate(this->colorInDepthImg.get_width_pixels(), this->colorInDepthImg.get_height_pixels(), OF_PIXELS_BGRA);
 		}
 
-		this->colorInDepthPix.setFromPixels(transformedColorData, depthDims.x, depthDims.y, 4);
+		this->colorInDepthPix.setFromPixels(colorInDepthData, this->colorInDepthImg.get_width_pixels(), this->colorInDepthImg.get_height_pixels(), 4);
 
-		ofLogVerbose(__FUNCTION__) << "Color in Depth " << depthDims.x << "x" << depthDims.y << " stride: " << transformedColorImg.get_stride_bytes() << ".";
-
-		transformedColorImg.reset();
+		ofLogVerbose(__FUNCTION__) << "Color in Depth " << this->colorInDepthImg.get_width_pixels() << "x" << this->colorInDepthImg.get_height_pixels() << " stride: " << this->colorInDepthImg.get_stride_bytes() << ".";
 
 		return true;
 	}
@@ -567,6 +593,11 @@ namespace ofxAzureKinect
 		default:
 			return 30;
 		}
+	}
+
+	const k4a::calibration& Stream::getCalibration() const
+	{
+		return this->calibration;
 	}
 
 	const ofShortPixels& Stream::getDepthPix() const
@@ -669,13 +700,8 @@ namespace ofxAzureKinect
 		return this->bodyTracker.getNumBodies();
 	}
 
-	const std::vector<k4abt_skeleton_t>& Stream::getBodySkeletons() const
+	const std::vector<BodySkeleton>& Stream::getBodySkeletons() const
 	{
 		return this->bodyTracker.getBodySkeletons();
-	}
-
-	const std::vector<uint32_t>& Stream::getBodyIDs() const
-	{
-		return this->bodyTracker.getBodyIDs();
 	}
 }

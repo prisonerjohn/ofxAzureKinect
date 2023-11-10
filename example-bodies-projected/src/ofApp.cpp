@@ -9,10 +9,22 @@ void ofApp::setup()
 
 	if (kinectDevice.open())
 	{
-		auto kinectSettings = ofxAzureKinect::DeviceSettings();
-		kinectSettings.syncImages = false;
-		kinectSettings.updateWorld = false;
-		kinectDevice.startCameras(kinectSettings);
+		auto deviceSettings = ofxAzureKinect::DeviceSettings();
+		deviceSettings.syncImages = false;
+		deviceSettings.depthMode = K4A_DEPTH_MODE_NFOV_UNBINNED;
+		deviceSettings.updateIr = false;
+		deviceSettings.updateColor = true;
+		deviceSettings.colorResolution = K4A_COLOR_RESOLUTION_720P;
+		deviceSettings.updateWorld = true;
+		deviceSettings.updateVbo = false;
+		kinectDevice.startCameras(deviceSettings);
+
+		auto bodyTrackerSettings = ofxAzureKinect::BodyTrackerSettings();
+		bodyTrackerSettings.sensorOrientation = K4ABT_SENSOR_ORIENTATION_DEFAULT;
+		//bodyTrackerSettings.processingMode = K4ABT_TRACKER_PROCESSING_MODE_CPU;
+		bodyTrackerSettings.imageType = K4A_CALIBRATION_TYPE_COLOR;
+		bodyTrackerSettings.updateBodiesImage = true;
+		kinectDevice.startBodyTracker(bodyTrackerSettings);
 	}
 }
 
@@ -25,28 +37,47 @@ void ofApp::exit()
 //--------------------------------------------------------------
 void ofApp::update()
 {
-	if (kinectDevice.isFrameNew())
-	{
-		kinectFps.newFrame();
-	}
+
 }
 
 //--------------------------------------------------------------
 void ofApp::draw()
 {
-	ofBackground(128);
+	ofBackground(0);
 
 	if (kinectDevice.isStreaming())
 	{
-		kinectDevice.getColorTex().draw(0, 0, 1280, 720);
-		kinectDevice.getDepthTex().draw(1280, 0, 360, 360);
-		kinectDevice.getIrTex().draw(1280, 360, 360, 360);
+		// Draw the body index texture. 
+		// The pixels are not black, their color equals the body ID which is just a low number.
+		kinectDevice.getBodyIndexTex().draw(0, 0);
+
+		// Draw the projected joints onto the image.
+		const auto& skeletons = kinectDevice.getBodySkeletons();
+		for (int i = 0; i < skeletons.size(); ++i)
+		{
+			for (int j = 0; j < K4ABT_JOINT_COUNT; ++j)
+			{
+				switch (skeletons[i].joints[j].confidenceLevel)
+				{
+				case K4ABT_JOINT_CONFIDENCE_MEDIUM:
+					ofSetColor(ofColor::green);
+					break;
+				case K4ABT_JOINT_CONFIDENCE_LOW:
+					ofSetColor(ofColor::yellow);
+					break;
+				case K4ABT_JOINT_CONFIDENCE_NONE:
+				default:
+					ofSetColor(ofColor::red);
+					break;
+				}
+				ofDrawCircle(skeletons[i].joints[j].projPos, 5.0f);
+			}
+		}
+		ofSetColor(ofColor::white);
 	}
 
 	std::ostringstream oss;
-	oss << std::fixed << std::setprecision(2)
-		<< "APP: " << ofGetFrameRate() << " FPS" << std::endl
-		<< "K4A: " << kinectFps.getFps() << " FPS";
+	oss << ofToString(ofGetFrameRate(), 2) + " FPS";
 	ofDrawBitmapStringHighlight(oss.str(), 10, 20);
 }
 

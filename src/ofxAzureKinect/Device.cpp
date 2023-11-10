@@ -8,7 +8,7 @@ namespace ofxAzureKinect
 {
 	DeviceSettings::DeviceSettings()
 		: depthMode(K4A_DEPTH_MODE_WFOV_2X2BINNED)
-		, colorResolution(K4A_COLOR_RESOLUTION_2160P)
+		, colorResolution(K4A_COLOR_RESOLUTION_1080P)
 		, colorFormat(K4A_IMAGE_FORMAT_COLOR_BGRA32)
 		, cameraFps(K4A_FRAMES_PER_SECOND_30)
 		, wiredSyncMode(K4A_WIRED_SYNC_MODE_STANDALONE)
@@ -18,6 +18,7 @@ namespace ofxAzureKinect
 		, updateIr(true)
 		, updateWorld(true)
 		, updateVbo(true)
+		, forceVboToDepthSize(false)
 		, syncImages(true)
 	{}
 
@@ -29,6 +30,7 @@ namespace ofxAzureKinect
 	Device::Device()
 		: Stream()
 		, index(-1)
+		, bRecording(false)
 	{}
 
 	Device::~Device()
@@ -160,6 +162,7 @@ namespace ofxAzureKinect
 		this->bUpdateIr = deviceSettings.updateIr;
 		this->bUpdateWorld = deviceSettings.updateWorld;
 		this->bUpdateVbo = deviceSettings.updateWorld && deviceSettings.updateVbo;
+		this->bForceVboToDepthSize = deviceSettings.forceVboToDepthSize;
 
 		// Get calibration.
 		try
@@ -174,8 +177,10 @@ namespace ofxAzureKinect
 
 		if (this->bUpdateColor)
 		{
-			// Create transformation.
+			// Create transformation and images.
 			this->transformation = k4a::transformation(this->calibration);
+
+			this->setupTransformationImages();
 		}
 
 		if (this->bUpdateWorld)
@@ -228,7 +233,11 @@ namespace ofxAzureKinect
 		this->stopStreaming();
 
 		this->depthToWorldImg.reset();
+		this->colorToWorldImg.reset();
+
 		this->transformation.destroy();
+		this->depthInColorImg.reset();
+		this->colorInDepthImg.reset();
 
 		this->device.stop_cameras();
 

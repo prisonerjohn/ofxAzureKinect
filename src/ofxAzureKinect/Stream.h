@@ -44,6 +44,8 @@ namespace ofxAzureKinect
 		virtual uint32_t getDepthDelayUsec() const = 0;
 		virtual uint32_t getSubordinateDelayUsec() const = 0;
 
+		const k4a::calibration& getCalibration() const;
+
 		const ofShortPixels& getDepthPix() const;
 		const ofTexture& getDepthTex() const;
 
@@ -74,13 +76,14 @@ namespace ofxAzureKinect
 		const ofTexture& getBodyIndexTex() const;
 
 		size_t getNumBodies() const;
-		const std::vector<k4abt_skeleton_t>& getBodySkeletons() const;
-		const std::vector<uint32_t>& getBodyIDs() const;
+		const std::vector<BodySkeleton>& getBodySkeletons() const;
 
 	protected:
 		virtual bool setupDepthToWorldTable();
 		virtual bool setupColorToWorldTable();
 		virtual bool setupImageToWorldTable(k4a_calibration_type_t type, k4a::image& img);
+
+		virtual bool setupTransformationImages();
 
 		virtual bool startStreaming();
 		virtual bool stopStreaming();
@@ -109,6 +112,7 @@ namespace ofxAzureKinect
 		bool bUpdateIr;
 		bool bUpdateWorld;
 		bool bUpdateVbo;
+		bool bForceVboToDepthSize;
 
 		std::condition_variable condition;
 		uint64_t pixFrameNum;
@@ -141,9 +145,11 @@ namespace ofxAzureKinect
 		ofFloatPixels colorToWorldPix;
 		ofTexture colorToWorldTex;
 
+		k4a::image depthInColorImg;
 		ofShortPixels depthInColorPix;
 		ofTexture depthInColorTex;
 
+		k4a::image colorInDepthImg;
 		ofPixels colorInDepthPix;
 		ofTexture colorInDepthTex;
 

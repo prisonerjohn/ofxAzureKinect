@@ -7,22 +7,22 @@ void ofApp::setup()
 
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
-	if (this->kinectDevice.open())
+	if (kinectDevice.open())
 	{
 		auto deviceSettings = ofxAzureKinect::DeviceSettings();
 		deviceSettings.syncImages = false;
 		deviceSettings.depthMode = K4A_DEPTH_MODE_NFOV_UNBINNED;
 		deviceSettings.updateIr = false;
-		deviceSettings.updateColor = false;
+		deviceSettings.updateColor = true;
 		//deviceSettings.colorResolution = K4A_COLOR_RESOLUTION_1080P;
 		deviceSettings.updateWorld = true;
 		deviceSettings.updateVbo = false;
-		this->kinectDevice.startCameras(deviceSettings);
+		kinectDevice.startCameras(deviceSettings);
 	
 		auto bodyTrackerSettings = ofxAzureKinect::BodyTrackerSettings();
 		bodyTrackerSettings.sensorOrientation = K4ABT_SENSOR_ORIENTATION_DEFAULT;
 		//bodyTrackerSettings.processingMode = K4ABT_TRACKER_PROCESSING_MODE_CPU;
-		this->kinectDevice.startBodyTracker(bodyTrackerSettings);
+		kinectDevice.startBodyTracker(bodyTrackerSettings);
 	}
 
 	// Load shader.
@@ -31,20 +31,20 @@ void ofApp::setup()
 	shaderSettings.shaderFiles[GL_FRAGMENT_SHADER] = "shaders/render.frag";
 	shaderSettings.intDefines["BODY_INDEX_MAP_BACKGROUND"] = K4ABT_BODY_INDEX_MAP_BACKGROUND;
 	shaderSettings.bindDefaults = true;
-	if (this->shader.setup(shaderSettings))
+	if (shader.setup(shaderSettings))
 	{
 		ofLogNotice(__FUNCTION__) << "Success loading shader!";
 	}
 
 	// Setup vbo.
 	std::vector<glm::vec3> verts(1);
-	this->pointsVbo.setVertexData(verts.data(), verts.size(), GL_STATIC_DRAW);
+	pointsVbo.setVertexData(verts.data(), verts.size(), GL_STATIC_DRAW);
 }
 
 //--------------------------------------------------------------
 void ofApp::exit()
 {
-	this->kinectDevice.close();
+	kinectDevice.close();
 }
 
 //--------------------------------------------------------------
@@ -58,12 +58,7 @@ void ofApp::draw()
 {
 	ofBackground(0);
 
-	if (this->kinectDevice.isStreaming())
-	{
-		this->kinectDevice.getBodyIndexTex().draw(0, 0, 360, 360);
-	}
-
-	this->camera.begin();
+	camera.begin();
 	{
 		ofPushMatrix();
 		{
@@ -71,12 +66,14 @@ void ofApp::draw()
 
 			ofEnableDepthTest();
 
+			const auto& bodySkeletons = kinectDevice.getBodySkeletons();
+
 			constexpr int kMaxBodies = 6;
 			int bodyIDs[kMaxBodies];
 			int i = 0;
-			while (i < this->kinectDevice.getNumBodies())
+			while (i < bodySkeletons.size())
 			{
-				bodyIDs[i] = this->kinectDevice.getBodyIDs()[i];
+				bodyIDs[i] = bodySkeletons[i].id;
 				++i;
 			}
 			while (i < kMaxBodies)
@@ -85,23 +82,22 @@ void ofApp::draw()
 				++i;
 			}
 
-			this->shader.begin();
+			shader.begin();
 			{
-				this->shader.setUniformTexture("uDepthTex", this->kinectDevice.getDepthTex(), 1);
-				this->shader.setUniformTexture("uBodyIndexTex", this->kinectDevice.getBodyIndexTex(), 2);
-				this->shader.setUniformTexture("uWorldTex", this->kinectDevice.getDepthToWorldTex(), 3);
-				this->shader.setUniform2i("uFrameSize", this->kinectDevice.getDepthTex().getWidth(), this->kinectDevice.getDepthTex().getHeight());
-				this->shader.setUniform1iv("uBodyIDs", bodyIDs, kMaxBodies);
+				shader.setUniformTexture("uDepthTex", kinectDevice.getDepthTex(), 1);
+				shader.setUniformTexture("uBodyIndexTex", kinectDevice.getBodyIndexTex(), 2);
+				shader.setUniformTexture("uWorldTex", kinectDevice.getDepthToWorldTex(), 3);
+				shader.setUniform2i("uFrameSize", kinectDevice.getDepthTex().getWidth(), kinectDevice.getDepthTex().getHeight());
+				shader.setUniform1iv("uBodyIDs", bodyIDs, kMaxBodies);
 
-				int numPoints = this->kinectDevice.getDepthTex().getWidth() * this->kinectDevice.getDepthTex().getHeight();
-				this->pointsVbo.drawInstanced(GL_POINTS, 0, 1, numPoints);
+				int numPoints = kinectDevice.getDepthTex().getWidth() * kinectDevice.getDepthTex().getHeight();
+				pointsVbo.drawInstanced(GL_POINTS, 0, 1, numPoints);
 			}
-			this->shader.end();
+			shader.end();
 
 			ofDisableDepthTest();
 
-			auto& bodySkeletons = this->kinectDevice.getBodySkeletons();
-			for (auto& skeleton : bodySkeletons)
+			for (const auto& skeleton : bodySkeletons)
 			{
 				// Draw joints.
 				for (int i = 0; i < K4ABT_JOINT_COUNT; ++i)
@@ -109,17 +105,32 @@ void ofApp::draw()
 					auto joint = skeleton.joints[i];
 					ofPushMatrix();
 					{
-						glm::mat4 transform = glm::translate(toGlm(joint.position)) * glm::toMat4(toGlm(joint.orientation));
+						glm::mat4 transform = glm::translate(joint.position) * glm::toMat4(joint.orientation);
 						ofMultMatrix(transform);
 
 						ofDrawAxis(50.0f);
+
+						if (joint.confidenceLevel >= K4ABT_JOINT_CONFIDENCE_MEDIUM)
+						{
+							ofSetColor(ofColor::green);
+						}
+						else if (joint.confidenceLevel >= K4ABT_JOINT_CONFIDENCE_LOW)
+						{
+							ofSetColor(ofColor::yellow);
+						}
+						else
+						{
+							ofSetColor(ofColor::red);
+						}
+
+						ofDrawSphere(10.0f);
 					}
 					ofPopMatrix();
 				}
 
 				// Draw connections.
-				this->skeletonMesh.setMode(OF_PRIMITIVE_LINES);
-				auto& vertices = this->skeletonMesh.getVertices();
+				skeletonMesh.setMode(OF_PRIMITIVE_LINES);
+				auto& vertices = skeletonMesh.getVertices();
 				vertices.resize(50);
 				int vdx = 0;
 
@@ -204,16 +215,16 @@ void ofApp::draw()
 				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_ELBOW_RIGHT].position);
 				vertices[vdx++] = toGlm(skeleton.joints[K4ABT_JOINT_WRIST_RIGHT].position);
 
-				this->skeletonMesh.draw();
+				skeletonMesh.draw();
 			}
 		}
 		ofPopMatrix();
 	}
-	this->camera.end();
+	camera.end();
 
 	std::ostringstream oss;
 	oss << ofToString(ofGetFrameRate(), 2) + " FPS" << std::endl;
-	oss << "Joint Smoothing: " << this->kinectDevice.getBodyTracker().jointSmoothing;
+	oss << "Joint Smoothing: " << kinectDevice.getBodyTracker().jointSmoothing;
 	ofDrawBitmapStringHighlight(oss.str(), 10, 20);
 }
 
@@ -237,7 +248,7 @@ void ofApp::mouseDragged(int x, int y, int button)
 {
 	if (button == 1)
 	{
-		this->kinectDevice.getBodyTracker().jointSmoothing = ofMap(x, 0, ofGetWidth(), 0.0f, 1.0f, true);
+		kinectDevice.getBodyTracker().jointSmoothing = ofMap(x, 0, ofGetWidth(), 0.0f, 1.0f, true);
 	}
 }
 

@@ -9,13 +9,13 @@ void ofApp::setup()
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
 	// The following will start all connected devices as standalone (no sync).
-	//this->setupStandalone();
+	//setupStandalone();
 
 	// The following will assign sync to devices based on serial number.
-	this->setupMasterSubordinate();
+	setupMasterSubordinate();
 
 	// Add FPS counter for each device.
-	this->fpsCounters.resize(this->kinectDevices.size());
+	fpsCounters.resize(kinectDevices.size());
 }
 
 //--------------------------------------------------------------
@@ -35,7 +35,7 @@ void ofApp::setupStandalone()
 		{
 			device->startCameras(kinectSettings);
 
-			this->kinectDevices.push_back(device);
+			kinectDevices.push_back(device);
 		}
 	}
 }
@@ -60,7 +60,7 @@ void ofApp::setupMasterSubordinate()
 			kinectSettings.wiredSyncMode = K4A_WIRED_SYNC_MODE_MASTER;
 			device->startCameras(kinectSettings);
 
-			this->kinectDevices.push_back(device);
+			kinectDevices.push_back(device);
 		}
 	}
 
@@ -73,7 +73,7 @@ void ofApp::setupMasterSubordinate()
 			//kinectSettings.subordinateDelayUsec = 100;
 			device->startCameras(kinectSettings);
 
-			this->kinectDevices.push_back(device);
+			kinectDevices.push_back(device);
 		}
 	}
 }
@@ -81,22 +81,22 @@ void ofApp::setupMasterSubordinate()
 //--------------------------------------------------------------
 void ofApp::exit()
 {
-	for (auto device : this->kinectDevices)
+	for (auto device : kinectDevices)
 	{
 		device->close();
 		device.reset();
 	}
-	this->kinectDevices.clear();
+	kinectDevices.clear();
 }
 
 //--------------------------------------------------------------
 void ofApp::update()
 {
-	for (int i = 0;i < this->kinectDevices.size(); ++i)
+	for (int i = 0;i < kinectDevices.size(); ++i)
 	{
-		if (this->kinectDevices[i]->isFrameNew())
+		if (kinectDevices[i]->isFrameNew())
 		{
-			this->fpsCounters[i].newFrame();
+			fpsCounters[i].newFrame();
 		}
 	}
 }
@@ -107,16 +107,16 @@ void ofApp::draw()
 	ofBackground(128);
 
 	int x = 0;
-	for (int i = 0; i < this->kinectDevices.size(); ++i)
+	for (int i = 0; i < kinectDevices.size(); ++i)
 	{
-		auto device = this->kinectDevices[i];
+		auto device = kinectDevices[i];
 		if (device->isStreaming())
 		{
 			device->getColorTex().draw(x, 0, 640, 360);
 			device->getDepthTex().draw(x, 360, 320, 320);
 			device->getIrTex().draw(x + 320, 360, 320, 320);
 
-			ofDrawBitmapStringHighlight(ofToString(this->fpsCounters[i].getFps(), 2) + " FPS", x + 10, 350, device->isFrameNew() ? ofColor::red : ofColor::black);
+			ofDrawBitmapStringHighlight(ofToString(fpsCounters[i].getFps(), 2) + " FPS", x + 10, 350, device->isFrameNew() ? ofColor::red : ofColor::black);
 
 			x += 640;
 		}

@@ -7,10 +7,18 @@ void ofApp::setup()
 
 	ofLogNotice(__FUNCTION__) << "Found " << ofxAzureKinect::Device::getInstalledCount() << " installed devices.";
 
+	nearClip.set("Near Clip", 0.25f, 0.0f, 8.0f);
+	farClip.set("Far Clip", 3.0f, 0.0f, 8.0f);
+
+	guiPanel.setup("Scaled Depth", "settings.json");
+	guiPanel.add(nearClip);
+	guiPanel.add(farClip);
+
 	if (kinectDevice.open())
 	{
 		auto kinectSettings = ofxAzureKinect::DeviceSettings();
 		kinectSettings.syncImages = false;
+		kinectSettings.updateColor = false;
 		kinectSettings.updateWorld = false;
 		kinectDevice.startCameras(kinectSettings);
 	}
@@ -38,16 +46,46 @@ void ofApp::draw()
 
 	if (kinectDevice.isStreaming())
 	{
-		kinectDevice.getColorTex().draw(0, 0, 1280, 720);
-		kinectDevice.getDepthTex().draw(1280, 0, 360, 360);
-		kinectDevice.getIrTex().draw(1280, 360, 360, 360);
+		const auto& depthPix = kinectDevice.getDepthPix();
+
+		if (!scaledDepthImage.isAllocated())
+		{
+			scaledDepthImage.allocate(depthPix.getWidth(), depthPix.getHeight(), depthPix.getImageType());
+		}
+		if (!linearDepthImage.isAllocated())
+		{
+			linearDepthImage.allocate(depthPix.getWidth(), depthPix.getHeight(), depthPix.getImageType());
+		}
+
+		auto& scaledPix = scaledDepthImage.getPixels();
+		auto& linearPix = linearDepthImage.getPixels();
+
+		// Convert from meters to millimeters.
+		const float nearClipMm = nearClip * 1000;
+		const float farClipMm = farClip * 1000;
+
+		for (int i = 0; i < depthPix.size(); ++i)
+		{
+			if (depthPix[i] > farClipMm)
+			{
+				scaledPix[i] = linearPix[i] = 0;
+			}
+			else
+			{
+				scaledPix[i] = ofMap(depthPix[i], nearClipMm, farClipMm, 0, 255, true);
+				linearPix[i] = ofMap(depthPix[i], nearClipMm, farClipMm, 0.0f, 1.0f, true);
+			}
+		}
+
+		scaledDepthImage.update();
+		linearDepthImage.update();
+
+		kinectDevice.getDepthTex().draw(0, 0, 512, 512);
+		scaledDepthImage.draw(512, 0, 512, 512);
+		linearDepthImage.draw(1024, 0, 512, 512);
 	}
 
-	std::ostringstream oss;
-	oss << std::fixed << std::setprecision(2)
-		<< "APP: " << ofGetFrameRate() << " FPS" << std::endl
-		<< "K4A: " << kinectFps.getFps() << " FPS";
-	ofDrawBitmapStringHighlight(oss.str(), 10, 20);
+	guiPanel.draw();
 }
 
 //--------------------------------------------------------------

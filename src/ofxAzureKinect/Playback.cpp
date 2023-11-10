@@ -7,6 +7,7 @@ namespace ofxAzureKinect
 		, updateIr(true)
 		, updateWorld(true)
 		, updateVbo(true)
+		, forceVboToDepthSize(false)
 		, autoloop(true)
 	{}
 
@@ -14,6 +15,7 @@ namespace ofxAzureKinect
 		: Stream()
 		, bUpdateDepth(true)
 		, bLoops(true)
+		, bPaused(false)
 		, lastFrameSecs(0)
 		, duration(0)
 	{
@@ -98,6 +100,7 @@ namespace ofxAzureKinect
 		this->bUpdateIr = this->config.ir_track_enabled && playbackSettings.updateIr;
 		this->bUpdateWorld = this->config.depth_track_enabled && playbackSettings.updateWorld;
 		this->bUpdateVbo = this->config.depth_track_enabled && playbackSettings.updateWorld && playbackSettings.updateVbo;
+		this->bForceVboToDepthSize = playbackSettings.forceVboToDepthSize;
 	
 		this->bLoops = playbackSettings.autoloop;
 
@@ -105,8 +108,10 @@ namespace ofxAzureKinect
 
 		if (this->bUpdateDepth && this->bUpdateColor)
 		{
-			// Create transformation.
+			// Create transformation and images.
 			this->transformation = k4a::transformation(this->calibration);
+
+			this->setupTransformationImages();
 		}
 
 		if (this->bUpdateWorld)
@@ -133,6 +138,16 @@ namespace ofxAzureKinect
 		this->transformation.destroy();
 
 		return true;
+	}
+
+	void Playback::setPaused(bool paused)
+	{
+		this->bPaused = paused;
+	}
+
+	bool Playback::isPaused() const
+	{
+		return this->bPaused;
 	}
 
 	bool Playback::seekPct(float pct)
@@ -166,7 +181,7 @@ namespace ofxAzureKinect
 	bool Playback::updateCapture()
 	{
 		float nextFrameSecs = lastFrameSecs + 1 / static_cast<float>(this->getFramerate());
-		if (ofGetElapsedTimef() < nextFrameSecs)
+		if (this->bPaused || ofGetElapsedTimef() < nextFrameSecs)
 		{
 			// Not ready for another frame yet.
 			return false;
