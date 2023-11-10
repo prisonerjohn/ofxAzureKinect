@@ -18,6 +18,7 @@ namespace ofxAzureKinect
 		, updateIr(true)
 		, updateWorld(true)
 		, updateVbo(true)
+		, forceVboToDepthSize(false)
 		, syncImages(true)
 	{}
 
@@ -161,6 +162,7 @@ namespace ofxAzureKinect
 		this->bUpdateIr = deviceSettings.updateIr;
 		this->bUpdateWorld = deviceSettings.updateWorld;
 		this->bUpdateVbo = deviceSettings.updateWorld && deviceSettings.updateVbo;
+		this->bForceVboToDepthSize = deviceSettings.forceVboToDepthSize;
 
 		// Get calibration.
 		try
@@ -175,8 +177,10 @@ namespace ofxAzureKinect
 
 		if (this->bUpdateColor)
 		{
-			// Create transformation.
+			// Create transformation and images.
 			this->transformation = k4a::transformation(this->calibration);
+
+			this->setupTransformationImages();
 		}
 
 		if (this->bUpdateWorld)
@@ -229,7 +233,11 @@ namespace ofxAzureKinect
 		this->stopStreaming();
 
 		this->depthToWorldImg.reset();
+		this->colorToWorldImg.reset();
+
 		this->transformation.destroy();
+		this->depthInColorImg.reset();
+		this->colorInDepthImg.reset();
 
 		this->device.stop_cameras();
 

@@ -29,6 +29,7 @@ namespace ofxAzureKinect
 		bool updateIr;
 		bool updateWorld;
 		bool updateVbo;
+		bool forceVboToDepthSize;
 
 		bool syncImages;
 

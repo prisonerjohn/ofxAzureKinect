@@ -7,6 +7,7 @@ namespace ofxAzureKinect
 		, updateIr(true)
 		, updateWorld(true)
 		, updateVbo(true)
+		, forceVboToDepthSize(false)
 		, autoloop(true)
 	{}
 
@@ -99,6 +100,7 @@ namespace ofxAzureKinect
 		this->bUpdateIr = this->config.ir_track_enabled && playbackSettings.updateIr;
 		this->bUpdateWorld = this->config.depth_track_enabled && playbackSettings.updateWorld;
 		this->bUpdateVbo = this->config.depth_track_enabled && playbackSettings.updateWorld && playbackSettings.updateVbo;
+		this->bForceVboToDepthSize = playbackSettings.forceVboToDepthSize;
 	
 		this->bLoops = playbackSettings.autoloop;
 
@@ -106,8 +108,10 @@ namespace ofxAzureKinect
 
 		if (this->bUpdateDepth && this->bUpdateColor)
 		{
-			// Create transformation.
+			// Create transformation and images.
 			this->transformation = k4a::transformation(this->calibration);
+
+			this->setupTransformationImages();
 		}
 
 		if (this->bUpdateWorld)

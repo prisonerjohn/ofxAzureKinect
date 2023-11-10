@@ -83,6 +83,8 @@ namespace ofxAzureKinect
 		virtual bool setupColorToWorldTable();
 		virtual bool setupImageToWorldTable(k4a_calibration_type_t type, k4a::image& img);
 
+		virtual bool setupTransformationImages();
+
 		virtual bool startStreaming();
 		virtual bool stopStreaming();
 
@@ -110,6 +112,7 @@ namespace ofxAzureKinect
 		bool bUpdateIr;
 		bool bUpdateWorld;
 		bool bUpdateVbo;
+		bool bForceVboToDepthSize;
 
 		std::condition_variable condition;
 		uint64_t pixFrameNum;
@@ -142,9 +145,11 @@ namespace ofxAzureKinect
 		ofFloatPixels colorToWorldPix;
 		ofTexture colorToWorldTex;
 
+		k4a::image depthInColorImg;
 		ofShortPixels depthInColorPix;
 		ofTexture depthInColorTex;
 
+		k4a::image colorInDepthImg;
 		ofPixels colorInDepthPix;
 		ofTexture colorInDepthTex;
 
