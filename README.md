@@ -56,8 +56,10 @@ Tested with:
 Use the OF Project Generator to create the example project files. If everything is installed correctly, it should properly locate all required include and library files.
 
 * `example-streams` demonstrates how to get depth, color, infrared textures from the device.
+* `example-scaled-depth` demonstrates how to remap the depth data to a narrower (probably more useful) range.
 * `example-pointCloud` demonstrates how to draw the basic point cloud VBO from the device.
 * `example-shader` demonstrates how to reconstruct a point cloud using LUTs in a shader.
-* `example-bodies` demonstrates how to get the body tracking index texture, and skeleton joint information.
+* `example-bodies` demonstrates how to get the body tracking index texture and skeleton joint information in 3D.
+* `example-bodies-projected` demonstrates how to get the body tracking index texture and skeleton joint information in 2D.
 * `example-multi` demonstrates how to use multiple devices in a single app.
 * `example-record` demonstrates how to record and playback device streams.
