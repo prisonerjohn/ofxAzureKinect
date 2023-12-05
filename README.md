@@ -58,6 +58,7 @@ Use the OF Project Generator to create the example project files. If everything 
 * `example-streams` demonstrates how to get depth, color, infrared textures from the device.
 * `example-scaled-depth` demonstrates how to remap the depth data to a narrower (probably more useful) range.
 * `example-pointCloud` demonstrates how to draw the basic point cloud VBO from the device.
+* `example-world-coord` demonstrates how to get the world coordinate from the depth and depth to world data sets.
 * `example-shader` demonstrates how to reconstruct a point cloud using LUTs in a shader.
 * `example-bodies` demonstrates how to get the body tracking index texture and skeleton joint information in 3D.
 * `example-bodies-projected` demonstrates how to get the body tracking index texture and skeleton joint information in 2D.
