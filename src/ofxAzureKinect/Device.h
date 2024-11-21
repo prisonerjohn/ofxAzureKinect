@@ -73,7 +73,7 @@ namespace ofxAzureKinect
 		bool getSyncImages() const;
 
 		const Recorder& getRecorder() const;
-		Recorder& Device::getRecorder();
+		Recorder& getRecorder();
 
 	protected:
 		bool updateCapture() override;
