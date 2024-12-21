@@ -78,6 +78,8 @@ namespace ofxAzureKinect
 		size_t getNumBodies() const;
 		const std::vector<BodySkeleton>& getBodySkeletons() const;
 
+		size_t getNumSuccessiveFails() const;
+
 	protected:
 		virtual bool setupDepthToWorldTable();
 		virtual bool setupColorToWorldTable();
@@ -127,6 +129,8 @@ namespace ofxAzureKinect
 		tjhandle jpegDecompressor;
 
 		BodyTracker bodyTracker;
+
+		size_t numSuccessiveFails;
 
 		ofShortPixels depthPix;
 		ofTexture depthTex;

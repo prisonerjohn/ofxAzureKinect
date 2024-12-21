@@ -16,6 +16,7 @@ namespace ofxAzureKinect
 		, bForceVboToDepthSize(false)
 		, jpegDecompressor(tjInitDecompress())
 		, numPoints(0)
+		, numSuccessiveFails(0)
 	{}
 
 	Stream::~Stream()
@@ -170,6 +171,7 @@ namespace ofxAzureKinect
 		this->startThread();
 		ofAddListener(ofEvents().update, this, &Stream::update);
 
+		this->numSuccessiveFails = 0;
 		this->bStreaming = true;
 
 		return true;
@@ -187,6 +189,7 @@ namespace ofxAzureKinect
 
 		ofRemoveListener(ofEvents().update, this, &Stream::update);
 
+		this->numSuccessiveFails = 0;
 		this->bStreaming = false;
 
 		return true;
@@ -223,6 +226,12 @@ namespace ofxAzureKinect
 				this->updatePixels();
 
 				this->releaseCapture();
+
+				this->numSuccessiveFails = 0;
+			}
+			else
+			{
+				++this->numSuccessiveFails;
 			}
 		}
 	}
@@ -703,5 +712,10 @@ namespace ofxAzureKinect
 	const std::vector<BodySkeleton>& Stream::getBodySkeletons() const
 	{
 		return this->bodyTracker.getBodySkeletons();
+	}
+
+	size_t Stream::getNumSuccessiveFails() const
+	{
+		return this->numSuccessiveFails;
 	}
 }
